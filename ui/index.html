@@ -51,8 +51,10 @@
     <div class="libHead"><h2 id="libTitle"></h2><button class="x ghost" data-act="lib-close" title="Close">×</button></div>
     <div class="libBody">
       <section id="tab-templates" hidden>
+        <input id="tplSearch" type="text" placeholder="Search templates" spellcheck="false">
+        <div id="tplCats" class="chips" data-no-i18n></div>
         <div id="tplThemes" class="swatches" data-no-i18n></div>
-        <p class="sub">Click a layout to use it on this slide, or press + to add it as a new slide. Your captions and screenshots are kept.</p>
+        <p class="sub"><span id="tplCount" data-no-i18n></span> · Click one to use it on this slide, or press + to add it as a new slide. Your captions and screenshots are kept. Pick a colour dot to recolour them all.</p>
         <div id="tplGrid" class="grid"></div>
       </section>
       <section id="tab-elements" hidden>

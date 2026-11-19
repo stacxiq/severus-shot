@@ -31,21 +31,39 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
   }
 
   /* ---------- templates ---------- */
-  let tplTheme = 'midnight';
+  let tplTheme = null, tplCat = 'all', tplCarry = {}; // null theme = each design keeps its own colours
+  const tplName = (id) => { const d = M.DESIGNS[id]; return d ? `${t(M.LAYOUTS[d.layout].label)} · ${t(M.LOOKS[d.look].label)}` : t(M.TEMPLATES[id]); };
+  // Thumbnails are drawn only when their card scrolls into view: there are 200+ of them.
+  const tplSeen = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      tplSeen.unobserve(e.target);
+      slideThumb(e.target.querySelector('canvas'), M.makeSlide(e.target.dataset.tpl, tplTheme, tplCarry), 130);
+    }
+  }, { rootMargin: '400px' });
   function drawTemplates() {
     const shots = studio.project.slides.flatMap((s) => s.elements.filter((e) => e.type === 'screenshot' && e.src));
-    const carry = { src: shots[0]?.src, src2: shots[1]?.src, srcTablet: shots[0]?.srcTablet };
-    $('#tplThemes').innerHTML = Object.entries(M.THEMES).map(([id, th]) => {
+    tplCarry = { src: shots[0]?.src, src2: shots[1]?.src, srcTablet: shots[0]?.srcTablet };
+    $('#tplThemes').innerHTML = `<button type="button" class="swatch auto ${tplTheme ? '' : 'on'}" data-theme="" title="${esc(t('Each design in its own colours'))}"></button>` + Object.entries(M.THEMES).map(([id, th]) => {
       const bg = th.bg.type === 'solid' ? th.bg.color : `linear-gradient(160deg, ${th.bg.stops.map((s) => s.color).join(', ')})`;
       return `<button type="button" class="swatch ${id === tplTheme ? 'on' : ''}" data-theme="${id}" title="${esc(th.label)}" style="background:${bg}"></button>`;
     }).join('');
-    $('#tplGrid').innerHTML = Object.entries(M.TEMPLATES).map(([id, label]) => `<div class="card" data-tpl="${id}"><button type="button" class="thumbBtn" data-use="${id}" title="Use on this slide"><canvas></canvas></button><div class="cardRow"><span class="cardName">${esc(label)}</span><button type="button" class="mini" data-add="${id}" title="Add as a new slide">${icon('plus')}</button></div></div>`).join('');
-    for (const card of $('#tplGrid').children) slideThumb(card.querySelector('canvas'), M.makeSlide(card.dataset.tpl, tplTheme, carry), 130);
-    localize($('#tab-templates'));
+    const q = $('#tplSearch').value.trim().toLowerCase();
+    const all = Object.keys(M.TEMPLATES);
+    const inCat = (id, cat) => cat === 'all' || M.TEMPLATE_INFO[id].cat === cat || (M.TEMPLATE_INFO[id].cat === 'classic' && M.TEMPLATE_INFO[id].group === cat);
+    const hits = all.filter((id) => inCat(id, tplCat) && (!q || tplName(id).toLowerCase().includes(q) || M.TEMPLATES[id].toLowerCase().includes(q)));
+    $('#tplCats').innerHTML = Object.entries(M.TEMPLATE_CATEGORIES).map(([id, label]) => `<button type="button" class="chip ${id === tplCat ? 'on' : ''}" data-tcat="${id}">${esc(t(label))} <small>${all.filter((x) => inCat(x, id)).length}</small></button>`).join('');
+    tplSeen.disconnect();
+    $('#tplGrid').innerHTML = hits.map((id) => `<div class="card" data-tpl="${id}"><button type="button" class="thumbBtn" data-use="${id}" title="${esc(t('Use on this slide'))}"><canvas></canvas></button><div class="cardRow"><span class="cardName" data-no-i18n>${esc(tplName(id))}</span><button type="button" class="mini" data-add="${id}" title="${esc(t('Add as a new slide'))}">${icon('plus')}</button></div></div>`).join('') || `<p class="sub">${esc(t('No template matches that search.'))}</p>`;
+    for (const card of $('#tplGrid').querySelectorAll('.card')) tplSeen.observe(card);
+    $('#tplCount').textContent = t('{0} templates', hits.length);
   }
+  $('#tplSearch').addEventListener('input', () => { clearTimeout(drawTemplates.timer); drawTemplates.timer = setTimeout(drawTemplates, 120); });
   $('#tab-templates').addEventListener('click', guard(async (e) => {
     const sw = e.target.closest('[data-theme]');
-    if (sw) { tplTheme = sw.dataset.theme; drawTemplates(); return; }
+    if (sw) { tplTheme = sw.dataset.theme || null; drawTemplates(); return; }
+    const chip = e.target.closest('[data-tcat]');
+    if (chip) { tplCat = chip.dataset.tcat; drawTemplates(); $('#tplGrid').scrollIntoView({ block: 'nearest' }); return; }
     const use = e.target.closest('[data-use]'), add = e.target.closest('[data-add]');
     if (use) {
       await studio.mutate(() => M.applyTemplate(studio.slide, use.dataset.use, tplTheme));

@@ -260,3 +260,40 @@ test('listing text is sanitized, limited and written as fastlane files', async (
   const tr = await translateListing(ai, { name: 'Shop', subtitle: 'Fast' }, 'en', 'ar', M.LISTING_FIELDS);
   assert.deepEqual(tr, { name: 'T:Shop', subtitle: 'T:Fast' });
 });
+
+// ----- design library -----
+test('the design library has 150+ templates that all build cleanly', () => {
+  const ids = Object.keys(M.TEMPLATES), designs = Object.keys(M.DESIGNS);
+  assert.ok(designs.length >= 150, `only ${designs.length} designs`);
+  assert.equal(new Set(ids).size, ids.length);
+  const seen = new Set();
+  for (const id of designs) {
+    const slide = M.makeSlide(id);
+    assert.ok(slide.elements.length >= 2, id);
+    const look = M.LOOKS[M.DESIGNS[id].look];
+    assert.deepEqual(slide.background, M.makeBackground(look.bg), id);
+    for (const e of slide.elements) {
+      assert.ok(Number.isFinite(e.x) && Number.isFinite(e.y) && e.w > 0 && e.h > 0, `${id} ${e.type}`);
+      if (e.type === 'shape') assert.ok(M.SHAPES.includes(e.shape), `${id} shape ${e.shape}`);
+      if (e.type === 'sticker') assert.ok(M.STICKERS.includes(e.kind), `${id} sticker ${e.kind}`);
+      if (e.type === 'screenshot') assert.ok(M.FRAMES.includes(e.frame), `${id} frame ${e.frame}`);
+    }
+    const again = M.sanitizeProject({ ...M.newProject('x'), slides: [slide] });
+    assert.equal(again.slides[0].elements.length, slide.elements.length, id);
+    seen.add(JSON.stringify(slide.elements.map((e) => [e.type, e.x, e.y, e.w, e.rotation, e.fill, e.color])) + JSON.stringify(slide.background));
+    assert.ok(M.TEMPLATE_CATEGORIES[M.TEMPLATE_INFO[id].cat], id);
+  }
+  assert.equal(seen.size, designs.length, 'every design should look different');
+  // A theme the user picks recolours a design; captions and screenshots carry over.
+  const s = M.makeSlide(Object.keys(M.DESIGNS).find((id) => id.startsWith('halo--')));
+  s.elements.find((e) => e.type === 'text').text = { en: 'Mine' };
+  s.elements.find((e) => e.type === 'screenshot').src = '/a.png';
+  const tl = Object.keys(M.DESIGNS).find((id) => id.startsWith('tilt-left--'));
+  M.applyTemplate(s, tl, 'ocean');
+  assert.ok(s.elements.some((e) => e.type === 'screenshot' && e.rotation === -12));
+  assert.deepEqual(s.background, M.makeBackground(M.THEMES.ocean.bg));
+  assert.equal(s.elements.find((e) => e.type === 'text').text.en, 'Mine');
+  assert.equal(s.elements.find((e) => e.type === 'screenshot').src, '/a.png');
+  assert.equal(M.inkOn('#c6f432'), '#141414');
+  assert.equal(M.inkOn('#18181b'), '#ffffff');
+});

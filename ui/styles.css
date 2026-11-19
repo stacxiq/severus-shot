@@ -248,3 +248,8 @@ dialog.video { width: min(1120px, 96vw); }
 .lsFields label { display: block; color: var(--muted); } .lsFields label.long { grid-column: 1 / -1; }
 .lsFields label span { display: flex; justify-content: space-between; margin-bottom: 4px; } .lsFields small.over { color: var(--danger); }
 .lsFields textarea { min-height: 150px; resize: vertical; }
+#tab-templates .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+#tab-templates .chip { border-radius: 999px; padding: 4px 10px; font-size: 11.5px; background: var(--s1); border: 1px solid var(--line); color: var(--muted); }
+#tab-templates .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+#tab-templates .chip small { opacity: .7; margin-inline-start: 2px; }
+.swatch.auto { background: conic-gradient(#ff5e62, #ffe14d, #5eead4, #7c3aed, #ff3df2, #ff5e62); }

@@ -72,6 +72,10 @@ build comes from CI and has had the least testing. Please open an issue if somet
 
 Agents get the same features through MCP: `list_devices`, `capture_device`, `setup_local_ai`, `translate_captions`, `remove_background`, `set_listing`, `install_ffmpeg`, and `layout: "fastlane"` on `export`.
 
+## New in 0.7
+
+- **218 templates.** 198 new designs join the 20 classic layouts: 33 compositions (device from the top, steep tilts, two and three devices, shapes behind, ratings and awards, big-number and statement slides, floating notifications and pills, glass and outline devices) each in six colour looks. The gallery has search, categories, and colour dots that recolour every design at once.
+
 ## New in 0.6
 
 - **Remove a background in one click.** Select a logo or product photo and press *Remove background*. A small model (U²-Net) runs on your computer, offline.
@@ -217,6 +221,10 @@ irm https://raw.githubusercontent.com/stacxiq/severus-shot/main/scripts/install.
 - **ذكاء اصطناعي محلي ومجاني:** `Ctrl+J` يترجم كل العناوين ويقترح عناوين جديدة بنموذج صغير يعمل على حاسوبك. اضغط **إعداد** مرة واحدة فينزّل التطبيق المحرك والنموذج (Gemma 3 1B، نحو 830 ميغابايت) ويشغّلهما بنفسه دون تثبيت أي شيء آخر. النماذج الصغيرة تخطئ، فراجع النتيجة.
 - **فيديو بدون Homebrew:** إن لم يكن ffmpeg مثبتاً، تعرض نافذة الفيديو تنزيله مرة واحدة.
 - **التحقق من التحديثات:** يخبرك التطبيق عند صدور إصدار أحدث على GitHub.
+
+### جديد في 0.7
+
+- **218 قالباً:** 198 تصميماً جديداً إضافة إلى 20 قالباً كلاسيكياً: 33 تكويناً، كلٌّ بستة ألوان، مع بحث وتصنيفات في معرض القوالب.
 
 ### جديد في 0.6
 

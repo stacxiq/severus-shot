@@ -360,8 +360,14 @@ export function updateElement(el, patch = {}, lang = 'en') {
   return el;
 }
 
-export function buildTemplate(templateId, themeId = 'midnight', carry = {}) {
-  const t = THEMES[themeId] || THEMES.midnight;
+// The palette a template is drawn with: a theme the user picked, else the design's own look.
+export function templateTheme(templateId, themeId) {
+  const design = DESIGNS[templateId];
+  return (themeId && THEMES[themeId]) || (design && LOOKS[design.look]) || THEMES.midnight;
+}
+
+export function buildTemplate(templateId, themeId, carry = {}) {
+  const t = templateTheme(templateId, themeId);
   const title = carry.title || { en: 'Say what your app does' };
   const sub = carry.sub || { en: 'One short line that explains why it matters' };
   const shot = (p) => makeElement('screenshot', { src: carry.src || '', srcTablet: carry.srcTablet || '', frameColor: t.frame, ...p });
@@ -371,6 +377,11 @@ export function buildTemplate(templateId, themeId = 'midnight', carry = {}) {
   // A readable ink colour on top of the theme's title colour (used for inverted pills).
   const bgInk = (th) => (th.bg.type === 'solid' ? th.bg.color : th.bg.stops[0].color);
   const cx = BASE.w / 2;
+  const design = DESIGNS[templateId];
+  if (design) {
+    const SH = (shape, p) => makeElement('shape', { shape, fill: t.accent, ...p });
+    return LAYOUTS[design.layout].build({ t, T, S, ST, SH, shot, cx, carry, ink: inkOn(t.accent), paper: bgInk(t) });
+  }
   switch (templateId) {
     case 'caption-bottom':
       return [shot({ x: cx, y: 1010, w: 960, h: 2080 }), T({ x: cx, y: 2300 }), S({ x: cx, y: 2560, w: 1040 })];
@@ -498,8 +509,8 @@ export function buildTemplate(templateId, themeId = 'midnight', carry = {}) {
   }
 }
 
-export function makeSlide(templateId = 'caption-top', themeId = 'midnight', carry = {}) {
-  const t = THEMES[themeId] || THEMES.midnight;
+export function makeSlide(templateId = 'caption-top', themeId, carry = {}) {
+  const t = templateTheme(templateId, themeId);
   return { id: uid('s'), background: makeBackground(t.bg), elements: buildTemplate(templateId, themeId, carry) };
 }
 
@@ -535,7 +546,7 @@ export function applyTemplate(slide, templateId, themeId) {
   const shots = slide.elements.filter((e) => e.type === 'screenshot');
   const carry = { title: texts[0]?.text, sub: texts[1]?.text, src: shots[0]?.src, srcTablet: shots[0]?.srcTablet, src2: shots[1]?.src };
   slide.elements = buildTemplate(templateId, themeId, carry);
-  if (themeId && THEMES[themeId]) slide.background = makeBackground(THEMES[themeId].bg);
+  if ((themeId && THEMES[themeId]) || DESIGNS[templateId]) slide.background = makeBackground(templateTheme(templateId, themeId).bg);
   return slide;
 }
 
@@ -649,4 +660,92 @@ export function listingFiles(project, langs) {
     }
   }
   return files;
+}
+
+// ===== Design library: compositions × colour looks =====
+// Each design is one composition (where the devices, captions and decorations sit) drawn in one look
+// (background, type colours, accent). Picking a theme in the gallery recolours any of them.
+const g = (angle, ...colors) => ({ type: 'gradient', angle, stops: colors.map((color, i) => ({ pos: colors.length === 1 ? 0 : i / (colors.length - 1), color })) });
+export const LOOKS = {
+  aurora: { label: 'Aurora', bg: g(155, '#0b1026', '#1d2a6b', '#0f766e'), title: '#ffffff', sub: '#bfd3ff', accent: '#5eead4', frame: '#0a0d18' },
+  noir: { label: 'Noir', bg: { type: 'solid', color: '#0b0b0d' }, title: '#ffffff', sub: '#a1a1aa', accent: '#c6f432', frame: '#1c1c20' },
+  cream: { label: 'Cream', bg: { type: 'solid', color: '#f6f0e4' }, title: '#1c1917', sub: '#6b6257', accent: '#e4572e', frame: '#1f1b18' },
+  lilac: { label: 'Lilac', bg: g(165, '#f3ecff', '#d9c8ff'), title: '#24124d', sub: '#5b4a85', accent: '#7c3aed', frame: '#1b1430' },
+  sunset: { label: 'Sunset', bg: g(150, '#ffb347', '#ff5e62', '#c2185b'), title: '#ffffff', sub: '#ffe6dc', accent: '#fff176', frame: '#1c1014' },
+  deepsea: { label: 'Deep sea', bg: g(170, '#0f2a5c', '#0b6aa8', '#22d3ee'), title: '#ffffff', sub: '#cfeeff', accent: '#fde047', frame: '#07142c' },
+  forest: { label: 'Forest', bg: g(165, '#0d2b1f', '#14532d'), title: '#f0fdf4', sub: '#a7d7b8', accent: '#facc15', frame: '#06140e' },
+  candy: { label: 'Candy', bg: g(145, '#ffd1e8', '#ff8fc7'), title: '#4a0d2e', sub: '#7d2a55', accent: '#7c3aed', frame: '#2a0f1e' },
+  mono: { label: 'Mono', bg: { type: 'solid', color: '#f4f4f5' }, title: '#09090b', sub: '#52525b', accent: '#18181b', frame: '#18181b' },
+  neon: { label: 'Neon', bg: g(160, '#12002b', '#2a0a5e'), title: '#ffffff', sub: '#d8c4ff', accent: '#ff3df2', frame: '#0a0118' },
+  sand: { label: 'Sand', bg: g(170, '#f3e7d3', '#e2c9a6'), title: '#3b2a1a', sub: '#7a6248', accent: '#b45309', frame: '#2a2018' },
+  royal: { label: 'Royal', bg: g(150, '#312e81', '#6d28d9', '#a855f7'), title: '#ffffff', sub: '#e4d9ff', accent: '#fbbf24', frame: '#140f3a' },
+  fresh: { label: 'Fresh', bg: g(165, '#e6fff5', '#a7f3d0'), title: '#064e3b', sub: '#2f7d68', accent: '#059669', frame: '#0b2a22' },
+  coral: { label: 'Coral', bg: g(155, '#ff7a59', '#ff4f6d'), title: '#ffffff', sub: '#ffe3dc', accent: '#1f2937', frame: '#1a1012' },
+  slate: { label: 'Slate', bg: g(170, '#1e293b', '#334155'), title: '#f8fafc', sub: '#b6c2d4', accent: '#38bdf8', frame: '#0b1220' },
+  lemon: { label: 'Lemon', bg: { type: 'solid', color: '#ffe14d' }, title: '#141414', sub: '#4a4324', accent: '#141414', frame: '#141414' },
+};
+
+// Black or white, whichever reads better on the given colour.
+export function inkOn(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex));
+  if (!m) return '#ffffff';
+  const [r, gr, b] = [1, 2, 3].map((i) => parseInt(m[i], 16));
+  return (r * 299 + gr * 587 + b * 114) / 1000 > 150 ? '#141414' : '#ffffff';
+}
+
+const D = { w: 980, h: 2123 }; // a phone at its usual size
+const dev = (w) => ({ w, h: Math.round(w * 2.166) });
+export const TEMPLATE_CATEGORIES = { all: 'All', classic: 'Classic', hero: 'Hero', tilted: 'Tilted', multi: 'Several devices', stage: 'Shapes behind', proof: 'Social proof', text: 'Text first', floating: 'Floating pieces', minimal: 'Minimal' };
+
+export const LAYOUTS = {
+  'top-bleed': { label: 'Device from the top', cat: 'hero', build: ({ T, S, shot, cx }) => [shot({ x: cx, y: 800, ...dev(1040) }), T({ x: cx, y: 2230 }), S({ x: cx, y: 2500, w: 1040 })] },
+  'bottom-bleed': { label: 'Device rising from the bottom', cat: 'hero', build: ({ T, S, shot, cx }) => [T({ x: cx, y: 340 }), S({ x: cx, y: 610, w: 1040 }), shot({ x: cx, y: 2300, ...dev(1120) })] },
+  giant: { label: 'Edge-to-edge device', cat: 'hero', build: ({ T, shot, cx }) => [T({ x: cx, y: 250, fontSize: 100 }), shot({ x: cx, y: 1830, ...dev(1180), glare: true })] },
+  halo: { label: 'Device with a halo', cat: 'hero', build: ({ T, S, SH, shot, cx }) => [SH('glow', { x: cx, y: 1880, w: 2100, h: 2100, opacity: 0.6, name: 'Glow' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 1920, ...D, glare: true })] },
+  'tilt-left': { label: 'Leaning left, caption at the side', cat: 'tilted', build: ({ T, S, shot, cx }) => [T({ x: 600, y: 370, w: 1040, align: 'start' }), S({ x: 560, y: 690, w: 960, align: 'start' }), shot({ x: cx + 230, y: 2120, ...dev(1120), rotation: -12 })] },
+  'tilt-right': { label: 'Leaning right', cat: 'tilted', build: ({ T, S, SH, shot, cx }) => [SH('ellipse', { x: cx - 300, y: 2000, w: 1300, h: 1300, opacity: 0.3, name: 'Disc' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx - 120, y: 2140, ...dev(1100), rotation: 10 })] },
+  'tilt-deep': { label: 'Steep tilt', cat: 'tilted', build: ({ T, SH, shot, cx }) => [SH('glow', { x: cx + 200, y: 1900, w: 1900, h: 1900, opacity: 0.5, name: 'Glow' }), T({ x: cx, y: 330 }), shot({ x: cx + 60, y: 1980, ...dev(1060), rotation: -18 })] },
+  'tilt-card': { label: 'Tilted card, no frame', cat: 'tilted', build: ({ T, S, SH, shot, cx }) => [SH('blob', { seed: 7, x: cx - 260, y: 2200, w: 1200, h: 1200, opacity: 0.4, name: 'Blob' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx + 30, y: 1990, ...dev(960), frame: 'none', rotation: -7 })] },
+  'duo-overlap': { label: 'Two devices, stepped', cat: 'multi', build: ({ T, S, shot, cx, carry }) => [T({ x: cx, y: 320 }), S({ x: cx, y: 590, w: 1040 }), shot({ x: cx - 230, y: 1800, ...dev(780), name: 'Back device' }), shot({ x: cx + 230, y: 2160, ...dev(780), src: carry.src2 || carry.src || '', name: 'Front device' })] },
+  'duo-out': { label: 'Two devices, leaning apart', cat: 'multi', build: ({ T, S, shot, cx, carry }) => [T({ x: cx, y: 320 }), S({ x: cx, y: 590, w: 1040 }), shot({ x: cx - 340, y: 2220, ...dev(820), rotation: -9, name: 'Left device' }), shot({ x: cx + 340, y: 2220, ...dev(820), rotation: 9, src: carry.src2 || carry.src || '', name: 'Right device' })] },
+  'trio-row': { label: 'Three devices in a row', cat: 'multi', build: ({ T, shot, cx, carry }) => [T({ x: cx, y: 330 }), shot({ x: cx - 600, y: 2060, ...dev(700), name: 'Left device' }), shot({ x: cx + 600, y: 2060, ...dev(700), src: carry.src2 || carry.src || '', name: 'Right device' }), shot({ x: cx, y: 1960, ...dev(820), name: 'Centre device' })] },
+  'duo-depth': { label: 'Front and back', cat: 'multi', build: ({ T, S, shot, cx, carry }) => [T({ x: cx, y: 320 }), S({ x: cx, y: 590, w: 1040 }), shot({ x: cx + 300, y: 1820, ...dev(640), rotation: 6, opacity: 0.85, src: carry.src2 || carry.src || '', name: 'Back device' }), shot({ x: cx - 110, y: 2080, ...dev(900), rotation: -4, name: 'Front device' })] },
+  'card-stage': { label: 'On a rounded card', cat: 'stage', build: ({ T, S, SH, shot, cx }) => [SH('rect', { radius: 140, x: cx, y: 2080, w: 1160, h: 1960, opacity: 0.25, name: 'Card' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 2060, ...dev(880) })] },
+  'circle-stage': { label: 'On a circle', cat: 'stage', build: ({ T, S, SH, shot, cx }) => [SH('ellipse', { x: cx, y: 2000, w: 1500, h: 1500, opacity: 0.3, name: 'Disc' }), SH('ring', { stroke: 8, x: cx, y: 2000, w: 1760, h: 1760, opacity: 0.4, name: 'Ring' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 2020, ...dev(900) })] },
+  'arch-stage': { label: 'Under an arch', cat: 'stage', build: ({ T, S, SH, shot, cx }) => [SH('rect', { radius: 560, x: cx, y: 2300, w: 1120, h: 2400, opacity: 0.3, name: 'Arch' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 2140, ...dev(860) })] },
+  band: { label: 'Across a diagonal band', cat: 'stage', build: ({ T, S, SH, shot, cx }) => [SH('rect', { x: cx, y: 1980, w: 2400, h: 900, rotation: -12, opacity: 0.35, name: 'Band' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 1960, ...D })] },
+  'two-tone': { label: 'Two-tone split', cat: 'stage', build: ({ T, S, SH, shot, cx }) => [SH('rect', { x: cx, y: 2168, w: 1320, h: 1400, opacity: 0.92, name: 'Colour block' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 1960, ...dev(940) })] },
+  rings: { label: 'Rings behind', cat: 'stage', build: ({ T, S, SH, shot, cx }) => [SH('rings', { stroke: 6, x: cx, y: 1920, w: 1800, h: 1800, opacity: 0.45, name: 'Rings' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 1940, ...dev(920) })] },
+  wave: { label: 'Wave at the bottom', cat: 'stage', build: ({ T, S, SH, shot, cx }) => [SH('wave', { x: cx, y: 2560, w: 1500, h: 700, opacity: 0.5, name: 'Wave' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 1900, ...dev(940) })] },
+  badge: { label: 'Label above the headline', cat: 'proof', build: ({ t, T, S, ST, shot, cx, ink }) => [ST({ kind: 'pill', x: cx, y: 210, w: 300, text: 'NEW', fill: t.accent, color: ink }), T({ x: cx, y: 470 }), S({ x: cx, y: 740, w: 1040 }), shot({ x: cx, y: 2040, ...dev(920) })] },
+  stars: { label: 'Star rating first', cat: 'proof', build: ({ t, T, S, ST, shot, cx }) => [ST({ kind: 'rating', x: cx, y: 230, fill: '#ffc83d', color: t.title }), T({ x: cx, y: 480 }), S({ x: cx, y: 750, w: 1040 }), shot({ x: cx, y: 2300, ...dev(1080) })] },
+  quote: { label: 'Review quote over the device', cat: 'proof', build: ({ t, T, S, ST, shot, cx, carry }) => [ST({ kind: 'rating', x: cx, y: 260, text: '', w: 440, fill: '#ffc83d', color: t.title }), T({ x: cx, y: 640, fontSize: 104, w: 1120, text: carry.title || { en: '“I open it every single morning.”' } }), S({ x: cx, y: 1010, text: carry.sub || { en: 'Sara M. · App Store review' } }), shot({ x: cx, y: 2440, ...dev(1000) })] },
+  laurels: { label: 'Award and device', cat: 'proof', build: ({ t, T, ST, shot, cx }) => [ST({ kind: 'laurel', x: cx, y: 360, w: 600, h: 440, fill: t.accent, color: t.title }), T({ x: cx, y: 780, fontSize: 104 }), shot({ x: cx, y: 2260, ...dev(1000) })] },
+  stat: { label: 'One big number', cat: 'text', build: ({ T, S, SH, shot, cx, carry }) => [SH('pill', { x: cx, y: 260, w: 260, h: 24, name: 'Accent bar' }), T({ x: cx, y: 600, fontSize: 300, text: carry.title || { en: '10M+' } }), S({ x: cx, y: 930, fontSize: 68, w: 1000, text: carry.sub || { en: 'people plan their day with us' } }), shot({ x: cx, y: 2360, ...dev(940) })] },
+  peek: { label: 'Big headline, device peeking', cat: 'text', build: ({ T, S, shot, cx }) => [T({ x: cx, y: 760, fontSize: 196, w: 1160 }), S({ x: cx, y: 1330, fontSize: 70, w: 1000 }), shot({ x: cx, y: 2820, ...dev(1000) })] },
+  'side-checks': { label: 'Checklist beside the device', cat: 'text', build: ({ t, T, ST, shot, cx }) => [T({ x: 600, y: 380, w: 1040, align: 'start' }), ST({ kind: 'check', x: 350, y: 1180, w: 540, h: 96, text: 'Works offline', fill: t.accent, color: t.title }), ST({ kind: 'check', x: 350, y: 1340, w: 540, h: 96, text: 'Syncs everywhere', fill: t.accent, color: t.title }), ST({ kind: 'check', x: 350, y: 1500, w: 540, h: 96, text: 'No ads, ever', fill: t.accent, color: t.title }), shot({ x: cx + 440, y: 2240, ...dev(820) })] },
+  statement: { label: 'Statement, no device', cat: 'text', build: ({ T, S, SH, cx }) => [SH('sparkle', { x: 250, y: 620, w: 170, h: 170, name: 'Sparkle' }), T({ x: cx, y: 1280, fontSize: 210, w: 1160 }), S({ x: cx, y: 1820, fontSize: 74, w: 1000 }), SH('squiggle', { x: cx, y: 2200, w: 520, h: 90, name: 'Squiggle' })] },
+  'float-notify': { label: 'Notifications around the device', cat: 'floating', build: ({ T, ST, shot, cx }) => [T({ x: cx, y: 330 }), shot({ x: cx, y: 1980, ...dev(880) }), ST({ kind: 'notification', x: cx - 170, y: 1260, w: 820, fill: '#ffffff', color: '#14161b', rotation: -4 }), ST({ kind: 'notification', x: cx + 170, y: 2300, w: 800, text: 'Payment received\nYou got $48.00 from Sara', fill: '#ffffff', color: '#14161b', rotation: 3 })] },
+  'float-pills': { label: 'Feature pills around the device', cat: 'floating', build: ({ t, T, ST, shot, cx, ink, paper }) => [T({ x: cx, y: 330 }), shot({ x: cx, y: 1900, ...dev(880) }), ST({ kind: 'pill', x: 270, y: 1260, w: 340, text: 'Fast', fill: t.accent, color: ink, rotation: -7 }), ST({ kind: 'pill', x: 1060, y: 1640, w: 380, text: 'Secure', fill: t.title, color: paper, rotation: 6 }), ST({ kind: 'pill', x: 280, y: 2280, w: 380, text: 'Offline', fill: t.accent, color: ink, rotation: 5 })] },
+  'float-sparkle': { label: 'Clay device with sparkles', cat: 'floating', build: ({ t, T, S, SH, shot, cx }) => [SH('blob', { seed: 5, x: 220, y: 1700, w: 820, h: 820, opacity: 0.45, name: 'Blob' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 1940, ...dev(940), frame: 'clay', frameColor: t.title, rotation: 3 }), SH('sparkle', { x: 180, y: 940, w: 150, h: 150, name: 'Sparkle' }), SH('sparkle', { fill: t.title, x: 1150, y: 2500, w: 110, h: 110, opacity: 0.85, name: 'Sparkle small' })] },
+  'glass-hero': { label: 'Glass device', cat: 'minimal', build: ({ T, S, SH, shot, cx }) => [SH('ellipse', { x: 1080, y: 1300, w: 700, h: 700, opacity: 0.45, name: 'Disc' }), SH('ellipse', { x: 240, y: 2500, w: 560, h: 560, opacity: 0.3, name: 'Disc small' }), T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 1940, ...D, frame: 'glass' })] },
+  outline: { label: 'Outline device, quiet page', cat: 'minimal', build: ({ t, T, S, SH, shot, cx }) => [SH('dots', { fill: t.sub, stroke: 20, x: 1090, y: 330, w: 280, h: 280, opacity: 0.5, name: 'Dots' }), T({ x: 560, y: 380, w: 960, align: 'start' }), S({ x: 540, y: 700, w: 920, align: 'start' }), shot({ x: cx, y: 2060, ...dev(900), frame: 'outline', frameColor: t.title })] },
+  'plain-card': { label: 'Plain screenshot card', cat: 'minimal', build: ({ T, S, shot, cx }) => [T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 1980, ...dev(1000), frame: 'none' })] },
+};
+
+const CLASSIC_CAT = { rating: 'proof', award: 'proof', review: 'proof', 'hero-text': 'text', checklist: 'text', pills: 'floating', notify: 'floating', playful: 'floating', tilted: 'tilted', duo: 'multi', trio: 'multi', spotlight: 'stage', card: 'stage', zoom: 'hero', frameless: 'minimal' };
+// id -> { layout, look }. Every composition is offered in six looks, spread so neighbours differ.
+export const DESIGNS = {};
+export const TEMPLATE_INFO = Object.fromEntries(Object.keys(TEMPLATES).map((id) => [id, { cat: 'classic', group: CLASSIC_CAT[id] || 'hero' }]));
+{
+  const lookIds = Object.keys(LOOKS);
+  Object.keys(LAYOUTS).forEach((layout, i) => {
+    for (let k = 0; k < 6; k += 1) {
+      const look = lookIds[(i * 5 + k * 3) % lookIds.length];
+      const id = `${layout}--${look}`;
+      DESIGNS[id] = { layout, look };
+      TEMPLATES[id] = `${LAYOUTS[layout].label} · ${LOOKS[look].label}`;
+      TEMPLATE_INFO[id] = { cat: LAYOUTS[layout].cat, layout, look };
+    }
+  });
 }
