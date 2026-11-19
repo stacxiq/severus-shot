@@ -441,6 +441,59 @@ function drawShape(ctx, el, env) {
       ctx.stroke();
       break;
     }
+    case 'rings':
+      for (let i = 0; i < 4; i += 1) {
+        const k = 1 - i * 0.24, w2 = Math.max(1, lw * 0.5);
+        ctx.lineWidth = w2;
+        ctx.globalAlpha *= i ? 0.8 : 1;
+        ctx.beginPath(); ctx.ellipse(0, 0, Math.max(1, rx * k - w2 / 2), Math.max(1, ry * k - w2 / 2), 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      break;
+    case 'half':
+      ctx.beginPath(); ctx.ellipse(0, ry, rx, ry * 2, 0, Math.PI, Math.PI * 2); ctx.closePath(); ctx.fill();
+      break;
+    case 'diamond':
+      polygon([[0, -ry], [rx, 0], [0, ry], [-rx, 0]]);
+      break;
+    case 'hexagon': {
+      const pts = [];
+      for (let i = 0; i < 6; i += 1) { const a = (i * Math.PI) / 3 - Math.PI / 2; pts.push([Math.cos(a) * rx, Math.sin(a) * ry]); }
+      polygon(pts);
+      break;
+    }
+    case 'heart':
+      ctx.beginPath();
+      ctx.moveTo(0, ry);
+      ctx.bezierCurveTo(-rx * 1.5, ry * 0.05, -rx * 0.75, -ry * 1.25, 0, -ry * 0.42);
+      ctx.bezierCurveTo(rx * 0.75, -ry * 1.25, rx * 1.5, ry * 0.05, 0, ry);
+      ctx.closePath(); ctx.fill();
+      break;
+    case 'plus': {
+      const t3 = Math.min(w, h) * 0.3;
+      rr(ctx, -t3 / 2, -ry, t3, h, t3 / 2); ctx.fill();
+      rr(ctx, -rx, -t3 / 2, w, t3, t3 / 2); ctx.fill();
+      break;
+    }
+    case 'stripes': {
+      const bar = Math.max(2, el.stroke * env.s), gap = bar * 2.2;
+      ctx.save();
+      rr(ctx, -rx, -ry, w, h, el.radius * env.s); ctx.clip();
+      ctx.rotate(-Math.PI / 4);
+      const span = Math.hypot(w, h);
+      for (let x0 = -span; x0 < span; x0 += gap) ctx.fillRect(x0, -span, bar, span * 2);
+      ctx.restore();
+      break;
+    }
+    case 'wave': {
+      ctx.beginPath();
+      ctx.moveTo(-rx, ry);
+      ctx.lineTo(-rx, -ry * 0.2);
+      const waves = Math.max(1, Math.round(w / Math.max(1, h * 2.2)));
+      for (let i = 0; i <= 60; i += 1) { const t4 = i / 60; ctx.lineTo(-rx + t4 * w, -ry * 0.2 - Math.sin(t4 * waves * Math.PI * 2) * ry * 0.8); }
+      ctx.lineTo(rx, ry);
+      ctx.closePath(); ctx.fill();
+      break;
+    }
     default:
       rr(ctx, -rx, -ry, w, h, el.shape === 'pill' ? Math.min(w, h) / 2 : el.radius * env.s);
       ctx.fill();
@@ -632,6 +685,153 @@ function drawSticker(ctx, el, env) {
       ctx.stroke();
       break;
     }
+    case 'cta': {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.28)'; ctx.shadowBlur = h * 0.35; ctx.shadowOffsetY = h * 0.14;
+      const g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, shade(ctx, el.fill, 0.14)); g.addColorStop(1, shade(ctx, el.fill, -0.1));
+      ctx.fillStyle = g;
+      rr(ctx, x, y, w, h, h * 0.3); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = el.color;
+      fitText(ctx, el, lines[0] || '', w - h * 0.7, h * 0.4, 700);
+      ctx.fillText(lines[0] || '', 0, h * 0.02);
+      break;
+    }
+    case 'tooltip': {
+      const bh = h * 0.76;
+      ctx.fillStyle = el.fill;
+      rr(ctx, x, y + h - bh, w, bh, bh * 0.26); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-h * 0.16, y + h - bh + 1); ctx.lineTo(0, y); ctx.lineTo(h * 0.16, y + h - bh + 1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = el.color;
+      fitText(ctx, el, lines[0] || '', w * 0.86, bh * 0.4, 600);
+      ctx.fillText(lines[0] || '', 0, y + h - bh / 2);
+      break;
+    }
+    case 'ribbon': {
+      const notch = h * 0.34, body = w - notch * 2;
+      ctx.fillStyle = shade(ctx, el.fill, -0.28);
+      for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sd * body / 2, y + h * 0.18); ctx.lineTo(sd * w / 2, y + h * 0.18); ctx.lineTo(sd * (w / 2 - notch * 0.7), y + h * 0.59); ctx.lineTo(sd * w / 2, y + h); ctx.lineTo(sd * body / 2, y + h); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = el.fill;
+      rr(ctx, -body / 2, y, body, h * 0.82, h * 0.08); ctx.fill();
+      ctx.fillStyle = el.color;
+      fitText(ctx, el, lines[0] || '', body * 0.86, h * 0.4, 700);
+      ctx.fillText(lines[0] || '', 0, y + h * 0.43);
+      break;
+    }
+    case 'tag': {
+      const tip = h * 0.5;
+      ctx.fillStyle = el.fill;
+      ctx.beginPath();
+      ctx.moveTo(x + tip, y); ctx.lineTo(x + w - h * 0.2, y); ctx.quadraticCurveTo(x + w, y, x + w, y + h * 0.2);
+      ctx.lineTo(x + w, y + h * 0.8); ctx.quadraticCurveTo(x + w, y + h, x + w - h * 0.2, y + h); ctx.lineTo(x + tip, y + h); ctx.lineTo(x, 0);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath(); ctx.arc(x + tip * 0.95, 0, h * 0.09, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = el.color;
+      fitText(ctx, el, lines[0] || '', w - tip * 1.9, h * 0.5, 800);
+      ctx.fillText(lines[0] || '', tip * 0.45, h * 0.03);
+      break;
+    }
+    case 'stat': {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.22)'; ctx.shadowBlur = h * 0.2; ctx.shadowOffsetY = h * 0.07;
+      ctx.fillStyle = el.fill;
+      rr(ctx, x, y, w, h, h * 0.16); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = el.color;
+      fitText(ctx, el, lines[0] || '', w * 0.8, h * 0.4, 800);
+      ctx.fillText(lines[0] || '', 0, lines[1] ? -h * 0.1 : 0);
+      if (lines[1]) { ctx.globalAlpha *= 0.7; fitText(ctx, el, lines[1], w * 0.8, h * 0.14, 500); ctx.fillText(lines[1], 0, h * 0.24); }
+      break;
+    }
+    case 'chart': {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.22)'; ctx.shadowBlur = h * 0.18; ctx.shadowOffsetY = h * 0.06;
+      ctx.fillStyle = '#ffffff';
+      rr(ctx, x, y, w, h, h * 0.12); ctx.fill();
+      ctx.restore();
+      const pad = h * 0.1;
+      ctx.textAlign = rtl ? 'right' : 'left';
+      const tx = rtl ? x + w - pad : x + pad;
+      ctx.fillStyle = '#14161b';
+      fitText(ctx, el, lines[0] || '', w * 0.5, h * 0.12, 600); ctx.fillText(lines[0] || '', tx, y + pad + h * 0.06);
+      if (lines[1]) { ctx.fillStyle = el.fill; ctx.textAlign = rtl ? 'left' : 'right'; fitText(ctx, el, lines[1], w * 0.36, h * 0.12, 800); ctx.fillText(lines[1], rtl ? x + pad : x + w - pad, y + pad + h * 0.06); }
+      const bars = [0.35, 0.5, 0.42, 0.66, 0.58, 0.82, 1], bw = (w - pad * 2) / bars.length, base = y + h - pad, top = h * 0.52;
+      bars.forEach((v, i) => { ctx.fillStyle = i === bars.length - 1 ? el.fill : shade(ctx, el.fill, 0.55); rr(ctx, x + pad + i * bw + bw * 0.16, base - top * v, bw * 0.68, top * v, bw * 0.16); ctx.fill(); });
+      break;
+    }
+    case 'progress': {
+      const r = Math.min(w, h) / 2, lwp = r * 0.2, pct = Math.min(100, Math.max(0, parseFloat(lines[0]) || 0)) / 100;
+      ctx.lineWidth = lwp;
+      ctx.strokeStyle = shade(ctx, el.fill, 0, 0.22);
+      ctx.beginPath(); ctx.arc(0, 0, r - lwp / 2, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = el.fill;
+      ctx.beginPath(); ctx.arc(0, 0, r - lwp / 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct); ctx.stroke();
+      ctx.fillStyle = el.color; ctx.direction = 'ltr';
+      fitText(ctx, el, lines[0] || '', r * 1.2, r * 0.5, 800);
+      ctx.fillText(lines[0] || '', 0, r * 0.03);
+      break;
+    }
+    case 'avatars': {
+      const r = h * 0.46, step = r * 1.3, n = 4, tones = ['#f97316', '#22c55e', '#3b82f6', '#ec4899'];
+      const startX = rtl ? w / 2 - r : -w / 2 + r, dirx = rtl ? -1 : 1;
+      for (let i = 0; i < n; i += 1) {
+        const cxp = startX + dirx * i * step;
+        ctx.fillStyle = el.fill; ctx.beginPath(); ctx.arc(cxp, 0, r, 0, Math.PI * 2); ctx.fill();
+        ctx.save(); ctx.beginPath(); ctx.arc(cxp, 0, r * 0.88, 0, Math.PI * 2); ctx.clip();
+        ctx.fillStyle = tones[i]; ctx.fillRect(cxp - r, -r, r * 2, r * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.beginPath(); ctx.arc(cxp, -r * 0.2, r * 0.32, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cxp, r * 0.75, r * 0.62, r * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle = el.color; ctx.textAlign = rtl ? 'right' : 'left';
+      const used = r * 2 + (n - 1) * step + r * 0.5;
+      fitText(ctx, el, lines[0] || '', Math.max(10, w - used), h * 0.36, 600);
+      ctx.fillText(lines[0] || '', startX + dirx * ((n - 1) * step + r * 1.5), h * 0.02);
+      break;
+    }
+    case 'toggle': {
+      ctx.fillStyle = el.fill;
+      rr(ctx, x, y, w, h, h / 2); ctx.fill();
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = h * 0.14; ctx.shadowOffsetY = h * 0.04;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(x + w - h / 2, 0, h * 0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      break;
+    }
+    case 'quote': {
+      ctx.fillStyle = el.fill;
+      for (const ox of [-w * 0.26, w * 0.26]) {
+        ctx.beginPath(); ctx.arc(ox, h * 0.14, Math.min(w * 0.2, h * 0.3), 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(ox - w * 0.2, h * 0.14); ctx.quadraticCurveTo(ox - w * 0.2, -h * 0.42, ox + w * 0.14, -h * 0.5); ctx.lineTo(ox + w * 0.14, -h * 0.3); ctx.quadraticCurveTo(ox - w * 0.02, -h * 0.26, ox - w * 0.02, h * 0.14); ctx.closePath(); ctx.fill();
+      }
+      break;
+    }
+    case 'highlight': {
+      ctx.fillStyle = el.fill;
+      ctx.globalAlpha *= 0.55;
+      ctx.beginPath();
+      ctx.moveTo(x + h * 0.1, y + h * 0.2); ctx.quadraticCurveTo(0, y - h * 0.02, x + w - h * 0.05, y + h * 0.12);
+      ctx.lineTo(x + w, y + h * 0.82); ctx.quadraticCurveTo(0, y + h * 1.04, x, y + h * 0.9);
+      ctx.closePath(); ctx.fill();
+      break;
+    }
+    case 'confetti': {
+      const rand = rng(Math.round(el.w + el.h)), tones = [el.fill, '#ffc83d', '#22d3ee', '#fb7185', '#34d399'];
+      for (let i = 0; i < 46; i += 1) {
+        ctx.save();
+        ctx.translate(x + rand() * w, y + rand() * h);
+        ctx.rotate(rand() * Math.PI * 2);
+        ctx.fillStyle = tones[i % tones.length];
+        const sz = Math.min(w, h) * (0.02 + rand() * 0.03);
+        if (i % 3 === 0) { ctx.beginPath(); ctx.arc(0, 0, sz * 0.6, 0, Math.PI * 2); ctx.fill(); } else rr(ctx, -sz, -sz * 0.35, sz * 2, sz * 0.7, sz * 0.2), ctx.fill();
+        ctx.restore();
+      }
+      break;
+    }
     default: {
       // emoji
       ctx.font = `${Math.min(w, h) * 0.86}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
@@ -642,9 +842,49 @@ function drawSticker(ctx, el, env) {
   return { w, h };
 }
 
+// Draws a line icon (24-unit grid) from its SVG primitives.
+function drawIcon(ctx, el, env, opts) {
+  const w = el.w * env.s, h = el.h * env.s, size = Math.min(w, h);
+  if (el.bg !== 'none') {
+    ctx.fillStyle = el.bgColor;
+    if (el.bg === 'circle') { ctx.beginPath(); ctx.arc(0, 0, size / 2, 0, Math.PI * 2); ctx.fill(); } else { rr(ctx, -size / 2, -size / 2, size, size, size * 0.24); ctx.fill(); }
+  }
+  const nodes = opts.getIcon ? opts.getIcon(el.icon) : null;
+  const inner = el.bg === 'none' ? size : size * 0.56, k = inner / 24;
+  ctx.save();
+  ctx.translate(-inner / 2, -inner / 2);
+  ctx.scale(k, k);
+  ctx.strokeStyle = el.color;
+  ctx.lineWidth = el.stroke;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (!nodes) {
+    ctx.globalAlpha *= 0.4;
+    ctx.strokeRect(3, 3, 18, 18);
+  } else {
+    for (const [tag, a] of nodes) {
+      const n = (v) => +v || 0;
+      ctx.beginPath();
+      if (tag === 'path') { ctx.stroke(new Path2D(a.d)); continue; }
+      if (tag === 'circle') ctx.arc(n(a.cx), n(a.cy), n(a.r), 0, Math.PI * 2);
+      else if (tag === 'ellipse') ctx.ellipse(n(a.cx), n(a.cy), n(a.rx), n(a.ry), 0, 0, Math.PI * 2);
+      else if (tag === 'line') { ctx.moveTo(n(a.x1), n(a.y1)); ctx.lineTo(n(a.x2), n(a.y2)); }
+      else if (tag === 'rect') rr(ctx, n(a.x), n(a.y), n(a.width), n(a.height), n(a.rx || a.ry));
+      else if (tag === 'polyline' || tag === 'polygon') {
+        const p = String(a.points || '').trim().split(/[\s,]+/).map(Number);
+        for (let i = 0; i + 1 < p.length; i += 2) (i ? ctx.lineTo(p[i], p[i + 1]) : ctx.moveTo(p[i], p[i + 1]));
+        if (tag === 'polygon') ctx.closePath();
+      }
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+  return { w, h };
+}
+
 // Draws one slide and returns the on-canvas box of every element (used for selection and hit tests).
 export function renderSlide(ctx, project, slide, options) {
-  const opts = { lang: 'en', languages: project.languages, getImage: () => null, final: false, ...options };
+  const opts = { lang: 'en', languages: project.languages, getImage: () => null, getIcon: () => null, final: false, ...options };
   const env = makeEnv(opts.W, opts.H, opts.device || 'phone');
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -657,7 +897,7 @@ export function renderSlide(ctx, project, slide, options) {
     const cx = toCanvasX(env, el.x) + (m ? m.dx * env.s : 0), cy = toCanvasY(env, el.y) + (m ? m.dy * env.s : 0);
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate((el.rotation * Math.PI) / 180);
+    ctx.rotate(((el.rotation + (m && m.rot ? m.rot : 0)) * Math.PI) / 180);
     if (m && m.scale !== 1) ctx.scale(m.scale, m.scale);
     ctx.globalAlpha = el.opacity * (m ? m.alpha : 1);
     let box;
@@ -665,6 +905,7 @@ export function renderSlide(ctx, project, slide, options) {
     else if (el.type === 'screenshot') box = drawScreenshot(ctx, el, env, opts);
     else if (el.type === 'image') box = drawImageEl(ctx, el, env, opts);
     else if (el.type === 'sticker') box = drawSticker(ctx, el, env);
+    else if (el.type === 'icon') box = drawIcon(ctx, el, env, opts);
     else box = drawShape(ctx, el, env);
     ctx.restore();
     boxes.push({ id: el.id, cx, cy, w: box.w, h: box.h, rot: el.rotation });

@@ -114,13 +114,13 @@ function drawInspector() {
   if (!el) {
     h += '<h3>Selection</h3><div class="empty">Click an element on the canvas to edit it.</div>';
   } else {
-    h += `<h3>${{ text: 'Text', screenshot: 'Screenshot', image: 'Image', shape: 'Shape', sticker: 'Sticker' }[el.type]}</h3>`;
+    h += `<h3>${{ text: 'Text', screenshot: 'Screenshot', image: 'Image', shape: 'Shape', sticker: 'Sticker', icon: 'Icon' }[el.type]}</h3>`;
     if (el.type === 'text') {
       const txt = el.text[studio.lang] ?? '';
       const rtl = M.isRtlText(txt) || el.dir === 'rtl';
       h += `<textarea id="textBox" data-scope="el" data-k="text" dir="${rtl ? 'rtl' : 'auto'}" placeholder="${esc(M.elementText(el, studio.lang, studio.project.languages))}">${esc(txt)}</textarea><div style="height:8px"></div>`;
       h += field('Font', `<input type="text" list="fontList" data-scope="el" data-k="fontFamily" data-commit="1" value="${esc(el.fontFamily)}" spellcheck="false">`);
-      h += '<div class="btnrow"><button data-act="font-load">Load font file…</button><button data-act="font-all">Use on all text</button></div>';
+      h += '<div class="btnrow"><button data-act="tab-fonts">Browse fonts</button><button data-act="font-load">Load font file…</button></div><div class="btnrow"><button data-act="font-all">Use on all text</button></div>';
       h += field('Size', numIn('el', 'fontSize', el.fontSize, 2, 'min="8"'));
       h += field('Weight', selIn('el', 'fontWeight', el.fontWeight, [100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) => [w, { 100: 'Thin', 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'Semibold', 700: 'Bold', 800: 'Heavy', 900: 'Black' }[w] ? `${w} ${{ 100: 'Thin', 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'Semibold', 700: 'Bold', 800: 'Heavy', 900: 'Black' }[w]}` : String(w)])));
       h += field('Colour', colorIn('el', 'color', el.color));
@@ -140,6 +140,20 @@ function drawInspector() {
     if (el.type === 'image') {
       h += `<div class="btnrow"><button data-act="el-image">Replace image…</button></div><div class="path">${esc(fileName(el.src))}</div>`;
       h += field('Corners', numIn('el', 'radius', el.radius, 2, 'min="0"'));
+    }
+    if (el.type === 'icon') {
+      h += `<div class="btnrow"><button data-act="tab-icons">${esc(el.icon)} · ${esc(t('Change icon'))}</button></div>`;
+      h += field('Colour', colorIn('el', 'color', el.color));
+      h += field('Line weight', `<input type="range" min="0.5" max="4" step="0.25" data-scope="el" data-k="stroke" value="${el.stroke}">`);
+      h += field('Backdrop', seg('el', 'bg', el.bg, [['none', 'None'], ['circle', 'Circle'], ['square', 'Square']]));
+      if (el.bg !== 'none') h += field('Backdrop colour', colorIn('el', 'bgColor', el.bgColor));
+    }
+    if (el.type === 'icon') {
+      h += `<div class="btnrow"><button data-act="tab-icons">${esc(el.icon)} · ${esc(t('Change icon'))}</button></div>`;
+      h += field('Colour', colorIn('el', 'color', el.color));
+      h += field('Line weight', `<input type="range" min="0.5" max="4" step="0.25" data-scope="el" data-k="stroke" value="${el.stroke}">`);
+      h += field('Backdrop', seg('el', 'bg', el.bg, [['none', 'None'], ['circle', 'Circle'], ['square', 'Square']]));
+      if (el.bg !== 'none') h += field('Backdrop colour', colorIn('el', 'bgColor', el.bgColor));
     }
     if (el.type === 'sticker') {
       h += field('Kind', selIn('el', 'kind', el.kind, Object.entries(M.STICKER_LABELS)));
@@ -191,6 +205,9 @@ function drawBar() {
   document.querySelector('[data-act=redo]').disabled = !studio.redoStack.length;
   const name = studio.filePath ? studio.filePath.split(/[\\/]/).pop() : studio.project.name;
   bridge.setTitle(`${studio.dirty ? '• ' : ''}${name} — Severus Shot`);
+  const title = $('#projTitle');
+  if (document.activeElement !== title) title.value = studio.project.name;
+  $('#saveState').textContent = !isTauri ? '' : studio.dirty ? t('Saving…') : t('Saved');
   const badge = $('#mcpBadge');
   badge.className = `badge ${info.mcp === 'on' ? 'on' : info.mcp === 'off' ? '' : 'err'}`;
 }
@@ -204,6 +221,7 @@ function repaint(reason) {
     drawThumbs();
     drawBar();
     if (!quiet) refreshPanel();
+    if (typeof panels !== 'undefined') panels.refreshFonts();
   });
 }
 studio.onChange(repaint);
@@ -505,7 +523,7 @@ const actions = {
   'export-pick': async () => { const d = await bridge.pickFolder(); if (d) $('#exDir').value = d; },
   'export-run': runExport,
 };
-const panels = initPanels({ studio, toast, guard, getInfo: () => info, addScreenshots, pickImages, confirmDiscard });
+const panels = initPanels({ studio, toast, guard, getInfo: () => info, addScreenshots, pickImages, confirmDiscard, api: { run: (name) => (actions[name] ? actions[name]() : null) } });
 Object.assign(actions, panels.actions);
 
 document.addEventListener('click', guard(async (e) => {
@@ -514,6 +532,8 @@ document.addEventListener('click', guard(async (e) => {
   const th = e.target.closest('.thumb');
   if (th) { studio.slideIndex = +th.dataset.i; studio.selectedId = null; studio.emit(); }
 }));
+$('#projTitle').addEventListener('change', guard(async (e) => { const v = e.target.value.trim().slice(0, 80); if (v) await studio.mutate((p) => { p.name = v; }); else e.target.value = studio.project.name; }));
+$('#projTitle').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
 $('#sizeSel').addEventListener('change', (e) => { studio.previewSize = M.resolveSize(e.target.value); studio.emit(); });
 $('#langSel').addEventListener('change', (e) => { studio.lang = e.target.value; studio.emit(); });
 
@@ -522,6 +542,7 @@ document.addEventListener('keydown', guard(async (e) => {
   const editing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '') || document.querySelector('dialog[open]');
   if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); await saveProject(e.shiftKey); return; }
   if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); await actions.projects(); return; }
+  if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); await actions.palette(); return; }
   if (document.querySelector('dialog[open]')) return;
   if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); await actions.new(); return; }
   if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); await (e.shiftKey ? actions.video() : actions.export()); return; }
@@ -529,7 +550,7 @@ document.addEventListener('keydown', guard(async (e) => {
   if (mod && e.key === 'Enter') { e.preventDefault(); await actions['slide-add'](); return; }
   if (editing) return;
   if (!mod && !e.altKey) {
-    const single = { g: 'templates', e: 'elements', t: 'add-text', s: 'add-screenshot', l: 'add-logo', '?': 'shortcuts' }[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+    const single = { g: 'templates', e: 'elements', i: 'icons', f: 'fonts', t: 'add-text', s: 'add-screenshot', l: 'add-logo', '?': 'shortcuts' }[e.key.length === 1 ? e.key.toLowerCase() : e.key];
     if (single) { e.preventDefault(); await actions[single](); return; }
     if (e.key === 'PageDown' || e.key === 'PageUp') {
       e.preventDefault();
@@ -613,6 +634,8 @@ async function runJob(job) {
   });
   bridge.onFileDrop(guard(handleDroppedPaths));
   studio.projectsDir = info.projectsDir || '';
+  studio.dataDir = info.dataDir || '';
+  studio.loadIcons().catch((err) => console.warn('icons unavailable', err));
   studio.hasFfmpeg = !!info.ffmpeg;
   if (info.job) { await bridge.frontendReady(); runJob(info.job); return; }
   if (isTauri && studio.projectsDir) {

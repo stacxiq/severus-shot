@@ -152,9 +152,22 @@ test('stickers and motion through the agent tools', async () => {
   r = await call(handle, 'update_element', { id: r.data.added.id, kind: 'pill' });
   assert.deepEqual([r.data.element.kind, r.data.element.w, r.data.element.text], ['pill', 460, 'New feature']);
   r = await call(handle, 'set_motion', { preset: 'pop', transition: 'push', seconds: 99, fps: 25 });
-  assert.deepEqual(r.data.motion, { preset: 'pop', transition: 'push', seconds: 15, fps: 30 });
+  assert.deepEqual([r.data.motion.preset, r.data.motion.transition, r.data.motion.seconds, r.data.motion.fps], ['pop', 'push', 15, 30]);
+  r = await call(handle, 'set_motion', { music: 'lofi', musicVolume: 0.4, float: true });
+  assert.deepEqual(r.data.motion.music, { type: 'builtin', id: 'lofi', path: '', volume: 0.4 });
+  assert.equal(r.data.motion.float, true);
+  r = await call(handle, 'set_motion', { music: '/tmp/song.mp3' });
+  assert.deepEqual([r.data.motion.music.type, r.data.motion.music.path, r.data.motion.music.volume], ['file', '/tmp/song.mp3', 0.4]);
+  r = await call(handle, 'add_icon', { icon: 'shopping-cart', bg: 'circle' });
+  assert.deepEqual([r.data.added.type, r.data.added.icon, r.data.added.bg], ['icon', 'shopping-cart', 'circle']);
   r = await call(handle, 'export_video', { path: '/tmp/x.mp4' });
   assert.ok(r.isError && /ffmpeg/.test(r.text), 'reports the missing encoder instead of failing silently');
   r = await call(handle, 'list_projects', {});
   assert.deepEqual(r.data.projects, []);
+});
+
+test('Google Fonts stylesheet parsing keeps Latin and Arabic files only', () => {
+  const css = `/* cyrillic */\n@font-face { font-family: 'Cairo'; font-style: normal; font-weight: 200 1000; src: url(https://fonts.gstatic.com/s/cairo/v1/a.woff2) format('woff2'); unicode-range: U+0400-045F; }\n/* arabic */\n@font-face { font-family: 'Cairo'; font-style: normal; font-weight: 200 1000; src: url(https://fonts.gstatic.com/s/cairo/v1/b.woff2) format('woff2'); unicode-range: U+0600-06FF; }\n/* latin */\n@font-face { font-family: 'Cairo'; font-style: italic; font-weight: 400; src: url(https://fonts.gstatic.com/s/cairo/v1/i.woff2) format('woff2'); unicode-range: U+0000-00FF; }\n/* latin */\n@font-face { font-family: 'Cairo'; font-style: normal; font-weight: 700; src: url(https://evil.example/x.woff2) format('woff2'); }\n/* latin */\n@font-face { font-family: 'Cairo'; font-style: normal; font-weight: 700; src: url(https://fonts.gstatic.com/s/cairo/v1/c.woff2) format('woff2'); unicode-range: U+0000-00FF; }`;
+  const files = M.parseGoogleCss(css);
+  assert.deepEqual(files.map((f) => [f.label, f.url.split('/').pop(), f.weight]), [['arabic', 'b.woff2', '200 1000'], ['latin', 'c.woff2', '700']]);
 });

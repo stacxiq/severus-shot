@@ -10,59 +10,96 @@
 </head>
 <body>
 <header class="bar">
-  <div class="brand" data-no-i18n>
-    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+  <div class="brand" data-no-i18n><svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
       <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
       <rect x="1" y="1" width="30" height="30" rx="9" fill="url(#lg)"/>
       <rect x="11" y="7" width="10" height="18" rx="3" fill="none" stroke="#fff" stroke-width="2"/>
       <path d="M6 11V8.5A2.5 2.5 0 0 1 8.500 6 M26 11V8.5A2.5 2.5 0 0 0 23.500 6 M6 21v2.500A2.500 2.500 0 0 0 8.500 26 M26 21v2.500A2.500 2.500 0 0 1 23.500 26" fill="none" stroke="#fff" stroke-width="1.800" stroke-linecap="round" opacity=".9"/>
-    </svg>
-    <span>Severus Shot</span>
-  </div>
+    </svg><span>Severus Shot</span></div>
+  <div class="doc" data-no-i18n><input id="projTitle" type="text" maxlength="80" spellcheck="false" title="Project name"><span id="saveState"></span></div>
   <div class="group">
-    <button data-act="projects" data-icon="folder" title="Projects (Ctrl+O)"><span>Projects</span></button>
-    <button data-act="save" data-icon="save" class="icon-only" title="Save project (Ctrl+S)"></button>
+    <button data-act="undo" data-icon="undo" class="icon-only ghost" title="Undo (Ctrl+Z)"></button>
+    <button data-act="redo" data-icon="redo" class="icon-only ghost" title="Redo (Ctrl+Shift+Z)"></button>
   </div>
-  <div class="group">
-    <button data-act="undo" data-icon="undo" class="icon-only" title="Undo (Ctrl+Z)"></button>
-    <button data-act="redo" data-icon="redo" class="icon-only" title="Redo (Ctrl+Shift+Z)"></button>
-  </div>
-  <div class="group">
-    <button data-act="templates" data-icon="grid" title="Templates (G)"><span>Templates</span></button>
-    <button data-act="add-text" data-icon="text" title="Add text (T)"><span>Text</span></button>
-    <button data-act="add-screenshot" data-icon="phone" title="Add screenshot (S)"><span>Screenshot</span></button>
-    <button data-act="add-logo" data-icon="image" title="Add logo or image (L)"><span>Logo</span></button>
-    <button data-act="elements" data-icon="sticker" title="Stickers and shapes (E)"><span>Elements</span></button>
-  </div>
+  <div class="spacer"></div>
+  <button data-act="palette" class="search ghost" data-icon="search" title="Search commands (Ctrl+K)"><span>Search commands</span><kbd>⌘K</kbd></button>
   <div class="spacer"></div>
   <select id="sizeSel" title="Preview size"></select>
   <select id="langSel" title="Caption language" data-no-i18n></select>
-  <button id="uiLang" data-act="ui-lang" data-icon="globe" title="Switch interface language" data-no-i18n><span></span></button>
-  <button id="mcpBadge" class="badge" data-act="agents" data-icon="agents" title="Agent control (MCP)"><span>Agents</span></button>
+  <button id="uiLang" data-act="ui-lang" data-icon="globe" class="ghost" title="Switch interface language" data-no-i18n><span></span></button>
+  <button id="mcpBadge" class="badge ghost" data-act="agents" data-icon="agents" title="Agent control (MCP)"><span>Agents</span></button>
   <button data-act="video" data-icon="play" title="Motion video (Ctrl+Shift+E)"><span>Video</span></button>
   <button class="primary" data-act="export" data-icon="export" title="Export images (Ctrl+E)"><span>Export</span></button>
 </header>
 <main>
-  <aside class="slides">
-    <div id="thumbs" data-no-i18n></div>
-    <div class="slide-actions">
-      <button data-act="slide-add" data-icon="plus" title="Add slide"><span>Slide</span></button>
-      <button data-act="slide-dup" data-icon="copy" title="Duplicate slide"><span>Copy</span></button>
-      <button data-act="slide-del" data-icon="trash" title="Delete slide"><span>Delete</span></button>
+  <nav class="rail">
+    <button data-tab="templates" data-icon="grid" title="Templates (G)"><span>Templates</span></button>
+    <button data-tab="elements" data-icon="sticker" title="Stickers and shapes (E)"><span>Elements</span></button>
+    <button data-tab="icons" data-icon="star" title="Icons (I)"><span>Icons</span></button>
+    <button data-tab="fonts" data-icon="type" title="Fonts (F)"><span>Fonts</span></button>
+    <i class="sep"></i>
+    <button data-act="add-text" data-icon="text" title="Add text (T)"><span>Text</span></button>
+    <button data-act="add-screenshot" data-icon="phone" title="Add screenshot (S)"><span>Screenshot</span></button>
+    <button data-act="add-logo" data-icon="image" title="Add logo or image (L)"><span>Logo</span></button>
+    <i class="grow"></i>
+    <button data-act="projects" data-icon="folder" title="Projects (Ctrl+O)"><span>Projects</span></button>
+    <button data-act="shortcuts" data-icon="keyboard" title="Shortcuts (?)"><span>Keys</span></button>
+  </nav>
+  <aside class="library" id="library" hidden>
+    <div class="libHead"><h2 id="libTitle"></h2><button class="x ghost" data-act="lib-close" title="Close">×</button></div>
+    <div class="libBody">
+      <section id="tab-templates" hidden>
+        <div id="tplThemes" class="swatches" data-no-i18n></div>
+        <p class="sub">Click a layout to use it on this slide, or press + to add it as a new slide. Your captions and screenshots are kept.</p>
+        <div id="tplGrid" class="grid"></div>
+      </section>
+      <section id="tab-elements" hidden>
+        <h3>Stickers and components</h3>
+        <div id="elStickers" class="tiles"></div>
+        <h3>Shapes</h3>
+        <div id="elShapes" class="tiles"></div>
+      </section>
+      <section id="tab-icons" hidden>
+        <input id="iconSearch" type="text" placeholder="Search 2,000 icons" spellcheck="false">
+        <div id="iconGrid" class="iconGrid" data-no-i18n></div>
+        <p class="sub" id="iconNote"></p>
+      </section>
+      <section id="tab-fonts" hidden>
+        <input id="fontSearch" type="text" placeholder="Search fonts or type a Google Fonts name" spellcheck="false">
+        <p class="sub" id="fontTarget"></p>
+        <div id="fontList" class="fontList"></div>
+      </section>
     </div>
   </aside>
-  <section class="stage" id="stage">
-    <div class="canvas-wrap" id="wrap" dir="ltr">
-      <canvas id="canvas"></canvas>
-      <div id="sel" hidden>
-        <i class="h" data-h="nw"></i><i class="h" data-h="ne"></i><i class="h" data-h="sw"></i><i class="h" data-h="se"></i>
-        <i class="rot" data-h="rot"></i>
+  <section class="center">
+    <div class="stage" id="stage">
+      <div class="canvas-wrap" id="wrap" dir="ltr">
+        <canvas id="canvas"></canvas>
+        <div id="sel" hidden>
+          <i class="h" data-h="nw"></i><i class="h" data-h="ne"></i><i class="h" data-h="sw"></i><i class="h" data-h="se"></i>
+          <i class="rot" data-h="rot"></i>
+        </div>
+      </div>
+      <div class="hint" id="hint"><span>Drop screenshots anywhere · drag to move · corners resize · top dot rotates</span></div>
+    </div>
+    <div class="film">
+      <div id="thumbs" data-no-i18n></div>
+      <div class="slide-actions">
+        <button data-act="slide-add" data-icon="plus" class="ghost" title="Add slide"></button>
+        <button data-act="slide-dup" data-icon="copy" class="ghost" title="Duplicate slide"></button>
+        <button data-act="slide-del" data-icon="trash" class="ghost" title="Delete slide"></button>
       </div>
     </div>
-    <div class="hint" id="hint"><span>Drop screenshots anywhere · drag to move · corners resize · top dot rotates</span> <button class="link" data-act="shortcuts">Shortcuts (?)</button></div>
   </section>
   <aside class="inspector" id="inspector"></aside>
 </main>
+
+<dialog id="paletteDlg" class="palette">
+  <form method="dialog">
+    <input id="palInput" type="text" placeholder="Type a command…" spellcheck="false" autocomplete="off">
+    <div id="palList"></div>
+  </form>
+</dialog>
 
 <dialog id="exportDlg">
   <form method="dialog" class="dlg">
@@ -94,28 +131,9 @@
   </form>
 </dialog>
 
-<dialog id="templatesDlg" class="wide">
-  <form method="dialog" class="dlg">
-    <div class="dlgHead"><h2>Templates</h2><div id="tplThemes" class="swatches" data-no-i18n></div><button value="cancel" class="x" title="Close">×</button></div>
-    <p class="sub">Click a layout to use it on this slide, or press + to add it as a new slide. Your captions and screenshots are kept.</p>
-    <div id="tplGrid" class="grid"></div>
-  </form>
-</dialog>
 
-<dialog id="elementsDlg" class="wide">
-  <form method="dialog" class="dlg">
-    <div class="dlgHead"><h2>Elements</h2><button value="cancel" class="x" title="Close">×</button></div>
-    <div class="btnrow quick">
-      <button type="button" data-act="add-logo" data-icon="image"><span>Logo or image</span></button>
-      <button type="button" data-act="el-text" data-icon="text"><span>Text</span></button>
-      <button type="button" data-act="el-shot" data-icon="phone"><span>Screenshot</span></button>
-    </div>
-    <h3>Stickers and components</h3>
-    <div id="elStickers" class="tiles"></div>
-    <h3>Shapes</h3>
-    <div id="elShapes" class="tiles"></div>
-  </form>
-</dialog>
+
+
 
 <dialog id="projectsDlg" class="wide">
   <form method="dialog" class="dlg">
@@ -137,6 +155,10 @@
           <div class="f"><span>Transition</span><div class="inline"><select id="vidTransition"></select></div></div>
           <div class="f"><span>Seconds per slide</span><div class="inline"><input id="vidSeconds" type="number" min="1" max="15" step="0.5"></div></div>
           <div class="f"><span>Frame rate</span><div class="inline"><select id="vidFps" data-no-i18n><option>24</option><option>30</option><option>60</option></select></div></div>
+          <div class="f"><span>Idle motion</span><div class="inline"><label class="check"><input type="checkbox" id="vidFloat"> <span>Keep elements floating</span></label></div></div>
+          <div class="f"><span>Music</span><div class="inline"><select id="vidMusic"></select></div></div>
+          <div class="f" id="vidFileRow" hidden><span>Audio file</span><div class="inline"><button type="button" data-act="video-audio">Choose…</button><span id="vidFile" class="path" data-no-i18n></span></div></div>
+          <div class="f" id="vidVolRow" hidden><span>Volume</span><div class="inline"><input id="vidVolume" type="range" min="0" max="1" step="0.05"><button type="button" class="ghost" data-act="video-listen" data-icon="play" title="Listen"></button></div></div>
         </div>
         <div class="f"><span>Size</span><div class="inline"><select id="vidSize" data-no-i18n></select></div></div>
         <div class="f"><span>Language</span><div class="inline"><select id="vidLang" data-no-i18n></select></div></div>
@@ -157,7 +179,9 @@
       <tr><td><kbd>Ctrl</kbd> <kbd>S</kbd></td><td>Save</td></tr>
       <tr><td><kbd>Ctrl</kbd> <kbd>E</kbd></td><td>Export images</td></tr>
       <tr><td><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>E</kbd></td><td>Motion video</td></tr>
+      <tr><td><kbd>Ctrl</kbd> <kbd>K</kbd></td><td>Search commands</td></tr>
       <tr><td><kbd>G</kbd></td><td>Template gallery</td></tr>
+      <tr><td><kbd>I</kbd> <kbd>F</kbd></td><td>Icons / fonts</td></tr>
       <tr><td><kbd>E</kbd></td><td>Stickers and shapes</td></tr>
       <tr><td><kbd>T</kbd> <kbd>S</kbd> <kbd>L</kbd></td><td>Add text / screenshot / logo</td></tr>
       <tr><td><kbd>Ctrl</kbd> <kbd>Enter</kbd></td><td>New slide</td></tr>

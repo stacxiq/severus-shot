@@ -19,16 +19,19 @@ export const FRAME_LABELS = {
   auto: 'Auto (phone / tablet)', phone: 'Phone, island', 'phone-notch': 'Phone, notch', android: 'Android, punch-hole', tablet: 'Tablet',
   clay: 'Clay (soft, flat)', outline: 'Outline', glass: 'Glass', none: 'Frameless',
 };
-export const SHAPES = ['rect', 'ellipse', 'pill', 'ring', 'arc', 'blob', 'glow', 'star', 'sparkle', 'triangle', 'dots', 'squiggle'];
+export const SHAPES = ['rect', 'ellipse', 'pill', 'ring', 'rings', 'arc', 'half', 'blob', 'glow', 'star', 'sparkle', 'triangle', 'diamond', 'hexagon', 'heart', 'plus', 'dots', 'stripes', 'wave', 'squiggle'];
 export const SHAPE_LABELS = {
   rect: 'Rectangle', ellipse: 'Ellipse', pill: 'Pill', ring: 'Ring', arc: 'Arc', blob: 'Blob', glow: 'Soft glow', star: 'Star',
   sparkle: 'Sparkle', triangle: 'Triangle', dots: 'Dot grid', squiggle: 'Squiggle',
+  rings: 'Concentric rings', half: 'Half circle', diamond: 'Diamond', hexagon: 'Hexagon', heart: 'Heart', plus: 'Plus', stripes: 'Stripes', wave: 'Wave',
 };
 
-export const STICKERS = ['rating', 'laurel', 'pill', 'bubble', 'burst', 'notification', 'check', 'arrow', 'underline', 'emoji'];
+export const STICKERS = ['rating', 'laurel', 'pill', 'cta', 'bubble', 'tooltip', 'burst', 'ribbon', 'tag', 'notification', 'stat', 'chart', 'progress', 'avatars', 'toggle', 'quote', 'check', 'highlight', 'arrow', 'underline', 'confetti', 'emoji'];
 export const STICKER_LABELS = {
   rating: 'Star rating', laurel: 'Award laurel', pill: 'Feature pill', bubble: 'Speech bubble', burst: 'Burst badge',
   notification: 'Notification card', check: 'Check mark', arrow: 'Curved arrow', underline: 'Underline stroke', emoji: 'Emoji',
+  cta: 'Button', tooltip: 'Callout', ribbon: 'Ribbon', tag: 'Price tag', stat: 'Stat card', chart: 'Chart card', progress: 'Progress ring',
+  avatars: 'User avatars', toggle: 'Toggle switch', quote: 'Quote marks', highlight: 'Highlighter', confetti: 'Confetti',
 };
 // Default size and text for each sticker kind.
 export const STICKER_DEFAULTS = {
@@ -42,15 +45,35 @@ export const STICKER_DEFAULTS = {
   arrow: { w: 300, h: 260, text: '' },
   underline: { w: 520, h: 60, text: '' },
   emoji: { w: 220, h: 220, text: '🔥' },
+  cta: { w: 520, h: 130, text: 'Get started' },
+  tooltip: { w: 520, h: 190, text: 'Tap to track' },
+  ribbon: { w: 560, h: 120, text: 'Best seller' },
+  tag: { w: 360, h: 150, text: '$4.99' },
+  stat: { w: 420, h: 300, text: '10M+\nDownloads' },
+  chart: { w: 520, h: 360, text: 'Sales\n+24%' },
+  progress: { w: 300, h: 300, text: '86%' },
+  avatars: { w: 620, h: 130, text: '50k+ happy users' },
+  toggle: { w: 240, h: 130, text: '' },
+  quote: { w: 220, h: 170, text: '' },
+  highlight: { w: 620, h: 120, text: '' },
+  confetti: { w: 700, h: 500, text: '' },
 };
-export const MOTIONS = { rise: 'Rise and fade in', fade: 'Fade in', pop: 'Pop in', slide: 'Slide in from the side', device: 'Device slides up', none: 'No animation' };
-export const TRANSITIONS = { fade: 'Cross-fade', push: 'Push', cut: 'Cut' };
+export const MOTIONS = { rise: 'Rise and fade in', fade: 'Fade in', pop: 'Pop in', slide: 'Slide in from the side', device: 'Device slides up', drop: 'Drop and bounce', zoom: 'Zoom out into place', swing: 'Swing in', none: 'No animation' };
+export const TRANSITIONS = { fade: 'Cross-fade', push: 'Push', up: 'Slide up', zoom: 'Zoom through', wipe: 'Wipe', cut: 'Cut' };
 export const VIDEO_SIZES = [
   { id: 'video-1080', label: 'Portrait 1080×1920', w: 1080, h: 1920, device: 'phone' },
   { id: 'video-886', label: 'App Store preview 886×1920', w: 886, h: 1920, device: 'phone' },
   { id: 'video-ipad', label: 'iPad preview 1200×1600', w: 1200, h: 1600, device: 'tablet' },
   { id: 'video-square', label: 'Square 1080×1080', w: 1080, h: 1080, device: 'phone' },
 ];
+export const MUSIC_TRACKS = { calm: 'Calm pad', upbeat: 'Upbeat pulse', lofi: 'Lo-fi keys', bright: 'Bright pluck' };
+// Background music for the video: none, one of the built-in tracks, or the user's own audio file.
+export function makeMusic(m = {}) {
+  const src = m || {};
+  const type = src.type === 'file' && src.path ? 'file' : src.type === 'builtin' && MUSIC_TRACKS[src.id] ? 'builtin' : 'none';
+  const vol = Number.isFinite(+src.volume) && src.volume !== null && src.volume !== '' ? Math.min(1, Math.max(0, +src.volume)) : 0.8;
+  return { type, id: type === 'builtin' ? src.id : '', path: type === 'file' ? String(src.path) : '', volume: vol };
+}
 export function makeMotion(m = {}) {
   const n = (v, d, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(+v) && v !== null && v !== '' ? +v : d));
   return {
@@ -58,6 +81,8 @@ export function makeMotion(m = {}) {
     transition: TRANSITIONS[m.transition] ? m.transition : 'fade',
     seconds: n(m.seconds, 3, 1, 15),
     fps: [24, 30, 60].includes(+m.fps) ? +m.fps : 30,
+    float: !!m.float, // elements keep drifting gently after they arrive
+    music: makeMusic(m.music),
   };
 }
 
@@ -99,6 +124,15 @@ export const TEMPLATES = {
 // Shipped with the app, so captions look the same on every computer.
 export const BUNDLED_FONTS = ['Inter', 'IBM Plex Sans Arabic'];
 export const DEFAULT_FONT = 'Inter';
+// A starting list for the font browser. Any other Google Fonts family can be typed in by name.
+export const GOOGLE_FONTS = {
+  arabic: ['Cairo', 'Tajawal', 'Almarai', 'Readex Pro', 'Noto Kufi Arabic', 'Noto Sans Arabic', 'Noto Naskh Arabic', 'Alexandria', 'Changa', 'El Messiri', 'Rubik', 'Vazirmatn', 'Baloo Bhaijaan 2', 'Reem Kufi', 'Amiri', 'Lalezar', 'Markazi Text', 'Mada', 'Kufam', 'Lemonada', 'Aref Ruqaa', 'Harmattan', 'Marhey', 'Rakkas', 'Blaka', 'Katibeh', 'Scheherazade New', 'Gulzar'],
+  sans: ['Poppins', 'Montserrat', 'Manrope', 'Plus Jakarta Sans', 'DM Sans', 'Outfit', 'Sora', 'Space Grotesk', 'Urbanist', 'Figtree', 'Lexend', 'Nunito', 'Raleway', 'Roboto', 'Open Sans', 'Lato', 'Work Sans', 'Onest', 'Geist', 'Be Vietnam Pro', 'Red Hat Display', 'Albert Sans', 'Bricolage Grotesque', 'Instrument Sans'],
+  display: ['Bebas Neue', 'Anton', 'Archivo Black', 'Unbounded', 'Syne', 'Righteous', 'Fredoka', 'Baloo 2', 'Paytone One', 'Rubik Mono One', 'Dela Gothic One', 'Bungee'],
+  serif: ['Playfair Display', 'DM Serif Display', 'Fraunces', 'Lora', 'Merriweather', 'Instrument Serif', 'Cormorant Garamond', 'Libre Baskerville'],
+  handwriting: ['Caveat', 'Pacifico', 'Dancing Script', 'Permanent Marker', 'Kalam', 'Shadows Into Light'],
+};
+export const GOOGLE_FONT_GROUPS = { arabic: 'Arabic', sans: 'Sans-serif', display: 'Display', serif: 'Serif', handwriting: 'Handwriting' };
 
 let idCounter = 0;
 export function uid(prefix = 'e') {
@@ -198,6 +232,14 @@ export function makeElement(type, props = {}) {
     el.radius = Math.max(0, num(props.radius, 0));
     el.w = num(props.w, 400);
     el.h = num(props.h, 400);
+  } else if (type === 'icon') {
+    el.icon = String(props.icon || props.name2 || 'star').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 60) || 'star';
+    el.color = normalizeColor(props.color, '#ffffff');
+    el.stroke = Math.min(4, Math.max(0.5, num(props.stroke, 2))); // line weight on the 24-unit icon grid
+    el.bg = ['none', 'circle', 'square'].includes(props.bg) ? props.bg : 'none';
+    el.bgColor = normalizeColor(props.bgColor, '#7c6cff');
+    el.w = num(props.w, 220);
+    el.h = num(props.h, 220);
   } else if (type === 'sticker') {
     el.kind = STICKERS.includes(props.kind) ? props.kind : 'pill';
     const d = STICKER_DEFAULTS[el.kind];
@@ -227,6 +269,7 @@ const UPDATABLE = {
   image: ['src', 'radius'],
   shape: ['shape', 'fill', 'fill2', 'radius', 'stroke', 'seed'],
   sticker: ['kind', 'text', 'fill', 'color', 'fontFamily'],
+  icon: ['icon', 'color', 'stroke', 'bg', 'bgColor'],
 };
 
 // Apply a partial update by rebuilding through makeElement so every value is validated.
@@ -410,11 +453,11 @@ export function sanitizeProject(raw) {
     languages: Array.isArray(raw.languages) && raw.languages.length ? [...new Set(raw.languages.map((l) => String(l).slice(0, 16)))] : ['en'],
     motion: makeMotion(raw.motion || {}),
     thumb: typeof raw.thumb === 'string' && raw.thumb.startsWith('data:image/jpeg;base64,') && raw.thumb.length < 90000 ? raw.thumb : '',
-    fonts: Array.isArray(raw.fonts) ? raw.fonts.filter((f) => f && f.family && f.path).map((f) => ({ family: String(f.family), path: String(f.path) })) : [],
+    fonts: Array.isArray(raw.fonts) ? raw.fonts.filter((f) => f && f.family && f.path).map((f) => ({ family: String(f.family), path: String(f.path), ...(f.weight ? { weight: String(f.weight).slice(0, 12) } : {}), ...(f.range ? { range: String(f.range).slice(0, 600) } : {}), ...(f.source ? { source: 'google' } : {}) })) : [],
     slides: raw.slides.map((s) => ({
       id: s.id || uid('s'),
       background: makeBackground(s.background || {}),
-      elements: (Array.isArray(s.elements) ? s.elements : []).filter((e) => e && ['text', 'screenshot', 'image', 'shape', 'sticker'].includes(e.type)).map((e) => makeElement(e.type, e)),
+      elements: (Array.isArray(s.elements) ? s.elements : []).filter((e) => e && ['text', 'screenshot', 'image', 'shape', 'sticker', 'icon'].includes(e.type)).map((e) => makeElement(e.type, e)),
     })),
   };
   if (!p.slides.length) p.slides.push(makeSlide());
@@ -439,6 +482,7 @@ export function applyTheme(slide, themeId) {
     if (e.type === 'text') { e.color = n === 0 ? t.title : t.sub; n += 1; }
     if (e.type === 'screenshot') e.frameColor = t.frame;
     if (e.type === 'shape') e.fill = t.accent;
+    if (e.type === 'icon') { e.color = e.bg === 'none' ? t.title : '#ffffff'; e.bgColor = t.accent; }
     if (e.type === 'sticker' && !['rating', 'notification', 'emoji'].includes(e.kind)) { e.fill = t.accent; e.color = e.kind === 'pill' || e.kind === 'burst' ? '#ffffff' : t.title; }
   }
   return slide;
@@ -464,4 +508,21 @@ export function elementText(el, lang, languages = ['en']) {
   for (const l of languages) if (t[l]) return t[l];
   const first = Object.values(t).find(Boolean);
   return first || '';
+}
+
+// Reads a Google Fonts stylesheet and returns the font files worth keeping (Latin and Arabic).
+export function parseGoogleCss(css) {
+  const out = [];
+  const re = /(?:\/\*\s*([\w-]+)\s*\*\/\s*)?@font-face\s*{([^}]*)}/g;
+  let m;
+  while ((m = re.exec(String(css)))) {
+    const label = m[1] || 'all', body = m[2];
+    if (!['all', 'latin', 'latin-ext', 'arabic'].includes(label)) continue;
+    const url = /url\((https:\/\/fonts\.gstatic\.com\/[^)\s]+)\)/.exec(body);
+    if (!url || /font-style:\s*italic/.test(body)) continue;
+    const weight = /font-weight:\s*([\d ]+);/.exec(body);
+    const range = /unicode-range:\s*([^;]+);/.exec(body);
+    out.push({ label, url: url[1], weight: weight ? weight[1].trim() : '400', range: range ? range[1].trim() : '' });
+  }
+  return out;
 }

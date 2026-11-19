@@ -34,7 +34,7 @@ export const bridge = {
   async listProjects(dir) { return isTauri ? invoke('list_projects', { dir }) : []; },
   async deleteProject(path) { need(); return invoke('delete_project', { path }); },
   async writeFileB64(path, dataB64) { need(); return invoke('write_file_b64', { path, dataB64 }); },
-  async videoStart(path, fps, width, height) { need(); return invoke('video_start', { path, fps, width, height }); },
+  async videoStart(path, fps, width, height, audio = null) { need(); return invoke('video_start', { path, fps, width, height, audio: audio ? audio.path : null, volume: audio ? audio.volume : null, duration: audio ? audio.duration : null, loopAudio: audio ? !!audio.loop : null }); },
   async videoFrame(id, dataB64) { return invoke('video_frame', { id, dataB64 }); },
   async videoFinish(id, cancel = false) { return invoke('video_finish', { id, cancel }); },
   rpcReply(id, response) { return invoke('rpc_reply', { id, response }); },
@@ -56,5 +56,6 @@ export const bridge = {
 
 export const IMAGE_FILTERS = [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }];
 export const FONT_FILTERS = [{ name: 'Fonts', extensions: ['ttf', 'otf', 'woff', 'woff2'] }];
+export const AUDIO_FILTERS = [{ name: 'Audio', extensions: ['mp3', 'm4a', 'aac', 'wav', 'ogg', 'flac'] }];
 export const VIDEO_FILTERS = [{ name: 'Video', extensions: ['mp4'] }];
 export const PROJECT_FILTERS = [{ name: 'Severus Shot project', extensions: ['severus', 'shotforge', 'json'] }];

@@ -88,6 +88,9 @@ export function buildTools(studio) {
         shapes: M.SHAPE_LABELS,
         stickers: M.STICKER_LABELS,
         motionPresets: M.MOTIONS,
+        musicTracks: M.MUSIC_TRACKS,
+        googleFonts: M.GOOGLE_FONTS,
+        iconCount: studio.iconList.length,
         transitions: M.TRANSITIONS,
         videoSizes: M.VIDEO_SIZES.map(({ id, label }) => ({ id, label })),
         videoExportAvailable: studio.hasFfmpeg,
@@ -137,8 +140,17 @@ export function buildTools(studio) {
     {
       name: 'set_motion',
       description: 'Set how the slides animate in the video: entrance preset, transition between slides, seconds per slide and frame rate.',
-      inputSchema: obj({ preset: str('Entrance animation', { enum: Object.keys(M.MOTIONS) }), transition: str('Between slides', { enum: Object.keys(M.TRANSITIONS) }), seconds: numb('Seconds each slide stays (1 to 15)'), fps: numb('24, 30 or 60') }),
-      run: async (a) => { await studio.mutate((p) => { p.motion = M.makeMotion({ ...p.motion, ...a }); }); return { motion: studio.project.motion }; },
+      inputSchema: obj({ preset: str('Entrance animation', { enum: Object.keys(M.MOTIONS) }), transition: str('Between slides', { enum: Object.keys(M.TRANSITIONS) }), seconds: numb('Seconds each slide stays (1 to 15)'), fps: numb('24, 30 or 60'), float: bool('Keep elements drifting gently after they arrive'), music: str(`Background music: none, a built-in track (${Object.keys(M.MUSIC_TRACKS).join(', ')}) or an absolute path to an audio file`), musicVolume: numb('Music volume 0 to 1') }),
+      run: async ({ music, musicVolume, ...a }) => {
+        await studio.mutate((p) => {
+          const cur = p.motion.music;
+          let next = cur;
+          if (music !== undefined) next = music === 'none' || music === '' ? { type: 'none' } : M.MUSIC_TRACKS[music] ? { type: 'builtin', id: music, volume: cur.volume } : { type: 'file', path: String(music), volume: cur.volume };
+          if (musicVolume !== undefined) next = { ...next, volume: musicVolume };
+          p.motion = M.makeMotion({ ...p.motion, ...a, music: next });
+        });
+        return { motion: studio.project.motion };
+      },
     },
     {
       name: 'export_video',
@@ -300,6 +312,28 @@ export function buildTools(studio) {
       run: async ({ slide, ...props }) => add(slide, 'sticker', props),
     },
     {
+      name: 'add_icon',
+      description: 'Add a line icon from the built-in library (about 2,000 icons). Find names with search_icons. Optionally put it on a circle or rounded-square backdrop.',
+      inputSchema: obj({ slide: SLIDE, icon: str('Icon name, e.g. shopping-cart, shield-check, bell'), color: str('Line colour'), stroke: numb('Line weight 0.5 to 4 (default 2)'), bg: str('Backdrop', { enum: ['none', 'circle', 'square'] }), bgColor: str('Backdrop colour'), ...POS }, ['icon']),
+      run: async ({ slide, ...props }) => {
+        await studio.loadIcons().catch(() => null);
+        const r = await add(slide, 'icon', props);
+        return studio.icons.size && !studio.icons.has(r.added.icon) ? { ...r, warning: `No icon is named "${r.added.icon}". Use search_icons to find a valid name.` } : r;
+      },
+    },
+    {
+      name: 'search_icons',
+      description: 'Search the icon library by name or keyword and return matching icon names.',
+      inputSchema: obj({ query: str('Keywords, e.g. "cart", "lock", "chart up"'), limit: numb('Maximum results (default 40)') }, ['query']),
+      run: async ({ query, limit }) => { await studio.loadIcons(); const icons = studio.searchIcons(query, Math.min(200, Math.max(1, limit || 40))); return { count: icons.length, icons }; },
+    },
+    {
+      name: 'add_google_font',
+      description: 'Download a font family from Google Fonts (needs internet once) so it can be used as fontFamily. Arabic families such as Cairo, Tajawal and Almarai are supported.',
+      inputSchema: obj({ family: str('Exact Google Fonts family name, e.g. Cairo or Poppins') }, ['family']),
+      run: async ({ family }) => studio.addGoogleFont(family),
+    },
+    {
       name: 'add_shape',
       description: 'Add a decorative shape: big soft shapes behind the device, rings, blobs, glows, sparkles, dot grids, squiggles. Put background shapes behind other elements with reorder_element to=back.',
       inputSchema: obj({ slide: SLIDE, shape: str('Shape', { enum: M.SHAPES }), fill: str('Fill colour (CSS)'), fill2: str('Optional second colour: makes a top-to-bottom gradient'), radius: numb('Corner radius for rect'), stroke: numb('Line thickness for ring, arc and squiggle; dot size for dots'), seed: numb('Blob outline variation (any whole number)'), ...POS }),
@@ -317,7 +351,7 @@ export function buildTools(studio) {
           path: str('New image path (screenshot/image)'), srcTablet: str('Tablet screenshot path'),
           frame: str('Device frame', { enum: M.FRAMES }), frameColor: str('Frame colour'),
           shape: str('Shape type', { enum: M.SHAPES }), fill: str('Shape fill'), fill2: str('Second gradient colour; empty string removes it'), radius: numb('Corner radius'),
-          kind: str('Sticker kind', { enum: M.STICKERS }),
+          kind: str('Sticker kind', { enum: M.STICKERS }), icon: str('Icon name (icon elements)'), bg: str('Icon backdrop', { enum: ['none', 'circle', 'square'] }), bgColor: str('Icon backdrop colour'),
           stroke: numb('Line thickness / dot size'), seed: numb('Blob variation'), glare: bool('Screen reflection (screenshots)'), shadow: bool('Drop shadow'),
         },
         required: ['id'],

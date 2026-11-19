@@ -1,6 +1,7 @@
 // Dialogs around the editor: template gallery, element library, projects, video, shortcuts, agents.
 import * as M from './model.js';
-import { bridge, isTauri, IMAGE_FILTERS, PROJECT_FILTERS, VIDEO_FILTERS } from './bridge.js';
+import { bridge, isTauri, IMAGE_FILTERS, PROJECT_FILTERS, VIDEO_FILTERS, AUDIO_FILTERS, mimeOf } from './bridge.js';
+import { renderTrack } from './music.js';
 import { renderVideoFrame, videoDuration } from './motion.js';
 import { t, localize } from './i18n.js';
 import { icon } from './icons.js';
@@ -8,7 +9,7 @@ import { icon } from './icons.js';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pickImages, confirmDiscard }) {
+export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pickImages, confirmDiscard, api }) {
   const show = (id) => { const d = $(id); localize(d); if (!d.open) d.showModal(); };
   const close = (id) => { const d = $(id); if (d.open) d.close(); };
 
@@ -39,16 +40,16 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
       return `<button type="button" class="swatch ${id === tplTheme ? 'on' : ''}" data-theme="${id}" title="${esc(th.label)}" style="background:${bg}"></button>`;
     }).join('');
     $('#tplGrid').innerHTML = Object.entries(M.TEMPLATES).map(([id, label]) => `<div class="card" data-tpl="${id}"><button type="button" class="thumbBtn" data-use="${id}" title="Use on this slide"><canvas></canvas></button><div class="cardRow"><span class="cardName">${esc(label)}</span><button type="button" class="mini" data-add="${id}" title="Add as a new slide">${icon('plus')}</button></div></div>`).join('');
-    for (const card of $('#tplGrid').children) slideThumb(card.querySelector('canvas'), M.makeSlide(card.dataset.tpl, tplTheme, carry), 150);
-    localize($('#templatesDlg'));
+    for (const card of $('#tplGrid').children) slideThumb(card.querySelector('canvas'), M.makeSlide(card.dataset.tpl, tplTheme, carry), 130);
+    localize($('#tab-templates'));
   }
-  $('#templatesDlg').addEventListener('click', guard(async (e) => {
+  $('#tab-templates').addEventListener('click', guard(async (e) => {
     const sw = e.target.closest('[data-theme]');
     if (sw) { tplTheme = sw.dataset.theme; drawTemplates(); return; }
     const use = e.target.closest('[data-use]'), add = e.target.closest('[data-add]');
     if (use) {
       await studio.mutate(() => M.applyTemplate(studio.slide, use.dataset.use, tplTheme));
-      studio.selectedId = null; studio.emit(); close('#templatesDlg');
+      studio.selectedId = null; studio.emit();
     } else if (add) {
       const shots = studio.slide.elements.filter((x) => x.type === 'screenshot');
       await studio.mutate((p) => {
@@ -62,22 +63,22 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
   /* ---------- elements: stickers, shapes, logo ---------- */
   function drawElements() {
     const theme = { fill: '#7c6cff', color: '#ffffff' };
+    const tone = (k) => (k === 'rating' ? { fill: '#ffc83d' } : ['notification', 'bubble', 'stat', 'tooltip'].includes(k) ? { fill: '#ffffff', color: '#14161b' } : k === 'highlight' ? { fill: '#ffe14d' } : {});
     $('#elStickers').innerHTML = M.STICKERS.map((k) => `<button type="button" class="tile" data-sticker="${k}" title="${esc(M.STICKER_LABELS[k])}"><canvas></canvas><span>${esc(M.STICKER_LABELS[k])}</span></button>`).join('');
     for (const b of $('#elStickers').children) {
       const k = b.dataset.sticker;
-      elementThumb(b.querySelector('canvas'), M.makeElement('sticker', { kind: k, ...theme, ...(k === 'rating' ? { fill: '#ffc83d' } : {}), ...(k === 'notification' || k === 'bubble' ? { fill: '#ffffff', color: '#14161b' } : {}) }));
+      elementThumb(b.querySelector('canvas'), M.makeElement('sticker', { kind: k, ...theme, ...tone(k) }));
     }
     $('#elShapes').innerHTML = M.SHAPES.map((k) => `<button type="button" class="tile" data-shape="${k}" title="${esc(M.SHAPE_LABELS[k])}"><canvas></canvas><span>${esc(M.SHAPE_LABELS[k])}</span></button>`).join('');
     for (const b of $('#elShapes').children) {
-      const k = b.dataset.shape, wide = k === 'pill' || k === 'squiggle';
+      const k = b.dataset.shape, wide = ['pill', 'squiggle', 'wave'].includes(k);
       elementThumb(b.querySelector('canvas'), M.makeElement('shape', { shape: k, fill: '#7c6cff', w: 600, h: wide ? 170 : 600, stroke: 40 }));
     }
-    localize($('#elementsDlg'));
+    localize($('#tab-elements'));
   }
   async function insert(el) {
     await studio.mutate(() => { studio.slide.elements.push(el); });
     studio.selectedId = el.id; studio.emit();
-    close('#elementsDlg');
   }
   async function addLogo() {
     const [src] = await pickImages(false);
@@ -86,16 +87,15 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
     await studio.mutate(() => { studio.slide.elements.push(el); });
     await studio.mutate(() => studio.fitToImage(el), { history: false });
     studio.selectedId = el.id; studio.emit();
-    close('#elementsDlg');
   }
-  $('#elementsDlg').addEventListener('click', guard(async (e) => {
+  $('#tab-elements').addEventListener('click', guard(async (e) => {
     const s = e.target.closest('[data-sticker]'), sh = e.target.closest('[data-shape]');
     if (s) {
       const k = s.dataset.sticker;
-      const tone = k === 'rating' ? { fill: '#ffc83d' } : k === 'notification' || k === 'bubble' ? { fill: '#ffffff', color: '#14161b' } : {};
+      const tone = k === 'rating' ? { fill: '#ffc83d' } : ['notification', 'bubble', 'stat', 'tooltip'].includes(k) ? { fill: '#ffffff', color: '#14161b' } : k === 'highlight' ? { fill: '#ffe14d' } : {};
       await insert(M.makeElement('sticker', { kind: k, y: 1100, ...tone }));
     } else if (sh) {
-      const k = sh.dataset.shape, wide = k === 'pill' || k === 'squiggle';
+      const k = sh.dataset.shape, wide = ['pill', 'squiggle', 'wave'].includes(k);
       await insert(M.makeElement('shape', { shape: k, w: 600, h: wide ? 160 : 600, opacity: k === 'glow' || k === 'blob' ? 0.5 : 1, seed: Math.floor(Math.random() * 1000) }));
     }
   }));
@@ -148,6 +148,13 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
     $('#vidTransition').innerHTML = opts(M.TRANSITIONS, m.transition);
     $('#vidSeconds').value = m.seconds;
     $('#vidFps').value = String(m.fps);
+    $('#vidFloat').checked = m.float;
+    const mv = m.music.type === 'builtin' ? `b:${m.music.id}` : m.music.type;
+    $('#vidMusic').innerHTML = [['none', t('No music')], ...Object.entries(M.MUSIC_TRACKS).map(([k, v]) => [`b:${k}`, t(v)]), ['file', t('My own audio file…')]].map(([k, v]) => `<option value="${k}"${k === mv ? ' selected' : ''}>${esc(v)}</option>`).join('');
+    $('#vidFileRow').hidden = $('#vidMusic').value !== 'file';
+    $('#vidVolRow').hidden = m.music.type === 'none';
+    $('#vidVolume').value = m.music.volume;
+    $('#vidFile').textContent = m.music.path || t('none');
     if (!$('#vidSize').options.length) $('#vidSize').innerHTML = M.VIDEO_SIZES.map((z) => `<option value="${z.id}">${esc(z.label)}</option>`).join('');
     $('#vidLang').innerHTML = studio.project.languages.map((l) => `<option${l === studio.lang ? ' selected' : ''}>${esc(l)}</option>`).join('');
     $('#vidStatus').textContent = studio.hasFfmpeg ? `${t('Length')}: ${videoDuration(studio.project).toFixed(1)} s` : t('Video export needs ffmpeg installed (macOS: brew install ffmpeg). The preview works without it.');
@@ -171,7 +178,11 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
   }
   $('#videoDlg').addEventListener('change', guard(async (e) => {
     if (!e.target.closest('#vidMotion')) { play(); return; }
-    await studio.mutate((p) => { p.motion = M.makeMotion({ preset: $('#vidPreset').value, transition: $('#vidTransition').value, seconds: $('#vidSeconds').value, fps: $('#vidFps').value }); });
+    const pick = $('#vidMusic').value, old = studio.project.motion.music;
+    const music = pick === 'none' ? { type: 'none' } : pick === 'file' ? { type: 'file', path: old.path, volume: $('#vidVolume').value } : { type: 'builtin', id: pick.slice(2), volume: $('#vidVolume').value };
+    if (pick === 'file' && !old.path) { $('#vidFileRow').hidden = false; $('#vidVolRow').hidden = true; return; }
+    stopMusic();
+    await studio.mutate((p) => { p.motion = M.makeMotion({ preset: $('#vidPreset').value, transition: $('#vidTransition').value, seconds: $('#vidSeconds').value, fps: $('#vidFps').value, float: $('#vidFloat').checked, music }); });
     drawVideo(); play();
   }));
   async function exportVideo() {
@@ -184,6 +195,148 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
       status.textContent = r.cancelled ? t('Cancelled') : `${t('Saved')}: ${r.path} (${r.width}×${r.height}, ${r.seconds} s)`;
     } finally { btn.disabled = false; $('[data-act=video-cancel]').hidden = true; }
   }
+
+
+  /* ---------- docked library (templates, elements, icons, fonts) ---------- */
+  const TAB_TITLES = { templates: 'Templates', elements: 'Elements', icons: 'Icons', fonts: 'Fonts' };
+  let tab = '';
+  function openTab(name) {
+    if (tab === name) { closeTab(); return; }
+    tab = name;
+    $('#library').hidden = false;
+    $('#libTitle').textContent = t(TAB_TITLES[name]);
+    for (const sec of document.querySelectorAll('#library section')) sec.hidden = sec.id !== `tab-${name}`;
+    for (const b of document.querySelectorAll('.rail [data-tab]')) b.classList.toggle('on', b.dataset.tab === name);
+    ({ templates: drawTemplates, elements: drawElements, icons: drawIcons, fonts: drawFonts })[name]();
+    if (name === 'icons') setTimeout(() => $('#iconSearch').focus(), 30);
+    if (name === 'fonts') setTimeout(() => $('#fontSearch').focus(), 30);
+    window.dispatchEvent(new Event('resize'));
+  }
+  function closeTab() {
+    tab = '';
+    $('#library').hidden = true;
+    for (const b of document.querySelectorAll('.rail [data-tab]')) b.classList.remove('on');
+    window.dispatchEvent(new Event('resize'));
+  }
+  document.querySelector('.rail').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) openTab(b.dataset.tab); });
+
+  /* ---------- icons ---------- */
+  const svgFor = (nodes) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${nodes.map(([tag, a]) => `<${tag} ${Object.entries(a).map(([k, v]) => `${k}="${esc(v)}"`).join(' ')}/>`).join('')}</svg>`;
+  async function drawIcons() {
+    if (!studio.icons.size) { $('#iconNote').textContent = t('Loading icons…'); try { await studio.loadIcons(); } catch (err) { $('#iconNote').textContent = String(err.message || err); return; } }
+    const q = $('#iconSearch').value;
+    const hits = studio.searchIcons(q, 240);
+    $('#iconGrid').innerHTML = hits.map((n) => `<button type="button" data-icon-name="${n}" title="${n}">${svgFor(studio.icons.get(n))}</button>`).join('');
+    $('#iconNote').textContent = hits.length ? (hits.length >= 240 ? t('Showing the first 240. Type to narrow the list.') : '') : t('No icon matches that search.');
+  }
+  $('#iconSearch').addEventListener('input', () => { clearTimeout(drawIcons.timer); drawIcons.timer = setTimeout(drawIcons, 90); });
+  $('#iconGrid').addEventListener('click', guard(async (e) => {
+    const b = e.target.closest('[data-icon-name]');
+    if (!b) return;
+    const sel = studio.selected;
+    if (sel && sel.type === 'icon') { await studio.mutate(() => M.updateElement(sel, { icon: b.dataset.iconName })); return; }
+    const el = M.makeElement('icon', { icon: b.dataset.iconName, y: 1200, bg: 'circle' });
+    await studio.mutate(() => { studio.slide.elements.push(el); });
+    studio.selectedId = el.id; studio.emit();
+  }));
+
+  /* ---------- fonts ---------- */
+  function fontTargets() {
+    const sel = studio.selected;
+    if (sel && (sel.type === 'text' || sel.type === 'sticker')) return { els: [sel], label: t('Applies to the selected text.') };
+    return { els: studio.project.slides.flatMap((s) => s.elements.filter((e) => e.type === 'text')), label: t('Nothing is selected, so a font applies to all captions.') };
+  }
+  function drawFonts() {
+    const q = $('#fontSearch').value.trim().toLowerCase();
+    const cur = fontTargets().els[0]?.fontFamily;
+    const have = new Set(studio.project.fonts.map((f) => f.family));
+    const row = (name, kind) => `<button type="button" class="fontRow ${name === cur ? 'on' : ''}" data-font="${esc(name)}" data-kind="${kind}"><b style="${kind === 'google' && !have.has(name) ? '' : `font-family:'${esc(name)}'`}">${esc(name)}</b><small>${kind === 'google' && !have.has(name) ? `${icon('download')}Google` : name === cur ? icon('check') : ''}</small></button>`;
+    const match = (n) => !q || n.toLowerCase().includes(q);
+    let h = '';
+    const mine = [...have].filter(match);
+    if (mine.length) h += `<h3>${esc(t('In this project'))}</h3>${mine.map((n) => row(n, 'project')).join('')}`;
+    const bundled = M.BUNDLED_FONTS.filter(match);
+    if (bundled.length) h += `<h3>${esc(t('Included'))}</h3>${bundled.map((n) => row(n, 'bundled')).join('')}`;
+    let googleShown = 0;
+    for (const [g, list] of Object.entries(M.GOOGLE_FONTS)) {
+      const items = list.filter((n) => match(n) && !have.has(n));
+      if (!items.length) continue;
+      googleShown += items.length;
+      h += `<h3>Google Fonts · ${esc(t(M.GOOGLE_FONT_GROUPS[g]))}</h3>${items.map((n) => row(n, 'google')).join('')}`;
+    }
+    const typed = $('#fontSearch').value.trim();
+    if (typed.length > 2 && !googleShown && !have.has(typed)) h += `<h3>Google Fonts</h3><button type="button" class="fontRow" data-font="${esc(typed)}" data-kind="google"><b>${esc(t('Get "{0}" from Google Fonts', typed))}</b><small>${icon('download')}</small></button>`;
+    const system = studio.systemFonts.filter(match).slice(0, q ? 80 : 40);
+    if (system.length) h += `<h3>${esc(t('Installed on this computer'))}</h3>${system.map((n) => row(n, 'system')).join('')}`;
+    $('#fontList').innerHTML = h || `<p class="empty">${esc(t('No font matches that search.'))}</p>`;
+    $('#fontTarget').textContent = fontTargets().label;
+  }
+  $('#fontSearch').addEventListener('input', () => { clearTimeout(drawFonts.timer); drawFonts.timer = setTimeout(drawFonts, 90); });
+  $('#fontList').addEventListener('click', guard(async (e) => {
+    const b = e.target.closest('[data-font]');
+    if (!b) return;
+    let family = b.dataset.font;
+    if (b.dataset.kind === 'google' && !studio.project.fonts.some((f) => f.family === family)) {
+      b.querySelector('small').textContent = t('Downloading…');
+      family = (await studio.addGoogleFont(family)).family;
+    }
+    const { els } = fontTargets();
+    await studio.mutate(() => { for (const el of els) el.fontFamily = family; });
+    toast(t('Font: {0}', family));
+    drawFonts();
+  }));
+
+  /* ---------- command palette ---------- */
+  const COMMANDS = [
+    ['New project', 'new', 'Ctrl N'], ['Open the project list', 'projects', 'Ctrl O'], ['Save', 'save', 'Ctrl S'], ['Export images', 'export', 'Ctrl E'], ['Motion video', 'video', 'Ctrl Shift E'],
+    ['Templates', 'tab:templates', 'G'], ['Elements', 'tab:elements', 'E'], ['Icons', 'tab:icons', 'I'], ['Fonts', 'tab:fonts', 'F'],
+    ['Add text', 'add-text', 'T'], ['Add screenshot', 'add-screenshot', 'S'], ['Add logo or image', 'add-logo', 'L'], ['New slide', 'slide-add', 'Ctrl Enter'],
+    ['Duplicate slide', 'slide-dup', ''], ['Delete slide', 'slide-del', ''], ['Undo', 'undo', 'Ctrl Z'], ['Redo', 'redo', 'Ctrl Shift Z'],
+    ['Connect an AI agent', 'agents', ''], ['Keyboard shortcuts', 'shortcuts', '?'], ['Switch interface language', 'ui-lang', ''],
+  ];
+  let palIndex = 0, palHits = [];
+  function drawPalette() {
+    const q = $('#palInput').value.trim().toLowerCase();
+    palHits = COMMANDS.filter(([label]) => !q || label.toLowerCase().includes(q) || t(label).toLowerCase().includes(q));
+    palIndex = Math.min(palIndex, Math.max(0, palHits.length - 1));
+    $('#palList').innerHTML = palHits.map(([label, , keys], i) => `<button type="button" class="palItem ${i === palIndex ? 'on' : ''}" data-i="${i}"><span>${esc(t(label))}</span><small>${esc(keys)}</small></button>`).join('') || `<p class="sub" style="padding:8px 12px">${esc(t('No command matches.'))}</p>`;
+  }
+  async function runCommand(i) {
+    const cmd = palHits[i];
+    if (!cmd) return;
+    close('#paletteDlg');
+    if (cmd[1].startsWith('tab:')) { if (tab !== cmd[1].slice(4)) openTab(cmd[1].slice(4)); } else await api.run(cmd[1]);
+  }
+  $('#palInput').addEventListener('input', () => { palIndex = 0; drawPalette(); });
+  $('#palInput').addEventListener('keydown', guard(async (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); palIndex = (palIndex + (e.key === 'ArrowDown' ? 1 : -1) + palHits.length) % Math.max(1, palHits.length); drawPalette(); }
+    else if (e.key === 'Enter') { e.preventDefault(); await runCommand(palIndex); }
+  }));
+  $('#palList').addEventListener('click', guard(async (e) => { const b = e.target.closest('[data-i]'); if (b) await runCommand(+b.dataset.i); }));
+
+  /* ---------- music preview ---------- */
+  let audioCtx = null, audioNode = null, audioEl = null;
+  function stopMusic() {
+    if (audioNode) { try { audioNode.stop(); } catch (_) { /* already stopped */ } audioNode = null; }
+    if (audioEl) { audioEl.pause(); audioEl = null; }
+  }
+  async function listen() {
+    if (audioNode || audioEl) { stopMusic(); return; }
+    const m = studio.project.motion.music;
+    if (m.type === 'builtin') {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const buf = await renderTrack(m.id, Math.max(4, videoDuration(studio.project)));
+      const src = audioCtx.createBufferSource(), g = audioCtx.createGain();
+      src.buffer = buf; src.loop = true; g.gain.value = m.volume;
+      src.connect(g); g.connect(audioCtx.destination); src.start();
+      audioNode = src;
+    } else if (m.type === 'file') {
+      audioEl = new Audio(`data:${{ mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac' }[m.path.split('.').pop().toLowerCase()] || mimeOf(m.path)};base64,${await bridge.readFileB64(m.path)}`);
+      audioEl.volume = m.volume; audioEl.loop = true;
+      await audioEl.play();
+    }
+  }
+  $('#videoDlg').addEventListener('close', stopMusic);
 
   /* ---------- agents ---------- */
   function drawAgents() {
@@ -214,11 +367,11 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
 
   return {
     actions: {
-      templates: () => { drawTemplates(); show('#templatesDlg'); },
-      elements: () => { drawElements(); show('#elementsDlg'); },
+      templates: () => openTab('templates'),
+      elements: () => openTab('elements'),
+      icons: () => openTab('icons'),
+      fonts: () => openTab('fonts'),
       'add-logo': addLogo,
-      'el-text': async () => { close('#elementsDlg'); document.querySelector('[data-act=add-text]').click(); },
-      'el-shot': async () => { close('#elementsDlg'); await addScreenshots(await pickImages(true)); },
       projects: async () => { await studio.flushSave(); await drawProjects(); show('#projectsDlg'); setTimeout(() => $('#projName').focus(), 50); },
       'proj-new': newProject,
       'proj-open-file': async () => {
@@ -230,11 +383,24 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
       video: () => { drawVideo(); show('#videoDlg'); play(); },
       'video-run': exportVideo,
       'video-cancel': () => { cancelled = true; },
+      'video-listen': listen,
+      'video-audio': async () => {
+        const path = await bridge.pickOpen(AUDIO_FILTERS);
+        if (!path) return;
+        stopMusic();
+        await studio.mutate((p) => { p.motion = M.makeMotion({ ...p.motion, music: { type: 'file', path, volume: $('#vidVolume').value || 0.8 } }); });
+        drawVideo();
+      },
+      'lib-close': closeTab,
+      palette: () => { $('#palInput').value = ''; palIndex = 0; drawPalette(); show('#paletteDlg'); setTimeout(() => $('#palInput').focus(), 30); },
+      'tab-icons': () => { if (tab !== 'icons') openTab('icons'); },
+      'tab-fonts': () => { if (tab !== 'fonts') openTab('fonts'); },
       shortcuts: () => show('#shortcutsDlg'),
       agents: () => { drawAgents(); show('#agentDlg'); },
       'agent-copy': async () => { try { await navigator.clipboard.writeText($('#agentSnippet').textContent); toast(t('Copied')); } catch (_) { toast(t('Select the text and copy it'), true); } },
     },
-    redrawOpen() { if ($('#templatesDlg').open) drawTemplates(); if ($('#projectsDlg').open) drawProjects(); },
+    redrawOpen() { if (tab) { $('#libTitle').textContent = t(TAB_TITLES[tab]); ({ templates: drawTemplates, elements: drawElements, icons: drawIcons, fonts: drawFonts })[tab](); } if ($('#projectsDlg').open) drawProjects(); },
+    refreshFonts() { if (tab === 'fonts') drawFonts(); },
   };
 }
 export { IMAGE_FILTERS };

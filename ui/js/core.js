@@ -3,6 +3,7 @@ import * as M from './model.js';
 import { renderSlide, imageSources, fontsUsed, FRAME_GEOM } from './render.js';
 import { bridge, mimeOf } from './bridge.js';
 import { renderVideoFrame, videoDuration } from './motion.js';
+import { renderTrack, wavBase64 } from './music.js';
 
 const b64ToBytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/([^:])\/{2,}/g, '$1/');
@@ -26,6 +27,9 @@ export class Studio {
     this.listeners = new Set();
     this.clipboard = null;
     this.projectsDir = '';
+    this.dataDir = '';
+    this.icons = new Map(); // icon name -> drawing primitives
+    this.iconList = []; // [name, tags] for the picker
     this.hasFfmpeg = false;
     this.saveTimer = null;
     this.saving = Promise.resolve();
@@ -106,20 +110,76 @@ export class Studio {
     }
   }
 
-  async registerFont(family, path) {
+  async registerFont(family, path, desc = {}) {
     const key = `${family}|${path}`;
     if (this.loadedFonts.has(key)) return;
     const bytes = b64ToBytes(await bridge.readFileB64(path));
-    const face = new FontFace(family, bytes.buffer);
+    const face = new FontFace(family, bytes.buffer, { ...(desc.weight ? { weight: desc.weight } : {}), ...(desc.range ? { unicodeRange: desc.range } : {}) });
     await face.load();
     document.fonts.add(face);
     this.loadedFonts.add(key);
   }
 
+  async loadIcons() {
+    if (this.icons.size) return;
+    const list = await (await fetch('icons/lucide.json')).json();
+    for (const [name, tags, nodes] of list) this.icons.set(name, nodes);
+    this.iconList = list.map(([name, tags]) => [name, tags]);
+    this.emit();
+  }
+  searchIcons(query, limit = 200) {
+    const q = String(query || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (!q.length) return this.iconList.slice(0, limit).map(([name]) => name);
+    // Names that match rank ahead of icons that only match by keyword.
+    const byName = [], byTag = [];
+    for (const [name, tags] of this.iconList) {
+      if (q.every((w) => name.includes(w))) byName.push(name);
+      else if (q.every((w) => name.includes(w) || tags.includes(w))) byTag.push(name);
+    }
+    byName.sort((x, y) => x.length - y.length);
+    return [...byName, ...byTag].slice(0, limit);
+  }
+
+  // Downloads a Google Fonts family once and keeps the files on disk, so it also works offline later.
+  async addGoogleFont(family) {
+    const name = String(family || '').trim().replace(/\s+/g, ' ');
+    if (!/^[\p{L}\p{N} ]{2,60}$/u.test(name)) throw new Error('Enter a Google Fonts family name, for example Cairo');
+    if (this.project.fonts.some((f) => f.family === name && f.source)) return { family: name, files: 0, cached: true };
+    if (!this.dataDir) throw new Error('Google Fonts need the desktop app');
+    const weights = [400, 700, 500, 600, 800, 300, 900];
+    const sheets = await Promise.all(weights.map(async (w) => {
+      try {
+        const res = await fetch(`https://fonts.googleapis.com/css2?family=${encodeURIComponent(name).replace(/%20/g, '+')}:wght@${w}&display=swap`);
+        return res.ok ? M.parseGoogleCss(await res.text()).map((f) => ({ ...f, w })) : [];
+      } catch (err) { return null; }
+    }));
+    if (sheets.every((x) => x === null)) throw new Error('Could not reach Google Fonts. Check the internet connection.');
+    const byUrl = new Map();
+    for (const f of sheets.flat().filter(Boolean)) {
+      const e = byUrl.get(f.url) || { ...f, ws: [] };
+      e.ws.push(f.w); byUrl.set(f.url, e);
+    }
+    if (!byUrl.size) throw new Error(`"${name}" was not found on Google Fonts. Check the spelling.`);
+    const slug = name.replace(/ /g, '-');
+    const added = [];
+    for (const f of byUrl.values()) {
+      const lo = Math.min(...f.ws), hi = Math.max(...f.ws);
+      const weight = f.weight.includes(' ') ? f.weight : lo === hi ? String(lo) : `${lo} ${hi}`; // one file serving several weights is a variable font
+      const path = `${this.dataDir}/Fonts/${slug}/${f.label}-${weight.replace(' ', '-')}.woff2`;
+      const buf = new Uint8Array(await (await fetch(f.url)).arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+      await bridge.writeFileB64(path, btoa(bin));
+      added.push({ family: name, path, weight, range: f.range, source: 'google' });
+    }
+    await this.mutate((p) => { p.fonts.push(...added); });
+    return { family: name, files: added.length };
+  }
+
   async ensureAssets() {
     await Promise.all(imageSources(this.project).map((s) => this.loadImage(s)));
     for (const f of this.project.fonts) {
-      try { await this.registerFont(f.family, f.path); } catch (err) { console.warn('font load failed', f.path, err); }
+      try { await this.registerFont(f.family, f.path, f); } catch (err) { console.warn('font load failed', f.path, err); }
     }
     await Promise.all(fontsUsed(this.project).map(([spec, text]) => document.fonts.load(spec, text).catch(() => null)));
   }
@@ -150,6 +210,7 @@ export class Studio {
     return renderSlide(ctx, this.project, slide, {
       W, H, lang: lang || this.lang, device, final, placeholder, anim,
       getImage: (src) => this.images.get(src) || null,
+      getIcon: (name) => this.icons.get(name) || null,
       createCanvas: (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h }),
     });
   }
@@ -280,7 +341,16 @@ export class Studio {
     const duration = videoDuration(this.project), frames = Math.max(1, Math.round(duration * fps));
     const mk = () => Object.assign(document.createElement('canvas'), { width: W, height: H });
     const canvas = mk(), scratch = { a: mk(), b: mk() };
-    const id = await bridge.videoStart(path, fps, W, H);
+    let audio = null;
+    const music = this.project.motion.music;
+    if (music.type === 'file') audio = { path: music.path, volume: music.volume, duration, loop: true };
+    else if (music.type === 'builtin') {
+      // Built-in tracks are rendered to exactly the video's length, so no looping is needed.
+      const wav = `${this.dataDir}/Cache/music-${music.id}.wav`;
+      await bridge.writeFileB64(wav, wavBase64(await renderTrack(music.id, duration)));
+      audio = { path: wav, volume: music.volume, duration, loop: false };
+    }
+    const id = await bridge.videoStart(path, fps, W, H, audio);
     try {
       for (let f = 0; f < frames; f += 1) {
         if (isCancelled && isCancelled()) { await bridge.videoFinish(id, true); return { cancelled: true }; }
@@ -293,7 +363,7 @@ export class Studio {
       throw err;
     }
     await bridge.videoFinish(id);
-    return { path, width: W, height: H, fps, seconds: Math.round(duration * 100) / 100, frames, warnings: this.missingAssets() };
+    return { path, width: W, height: H, fps, seconds: Math.round(duration * 100) / 100, frames, music: music.type === 'none' ? 'none' : music.type === 'builtin' ? music.id : music.path, warnings: this.missingAssets() };
   }
 
   // Place a new screenshot/image so its box matches the picture's proportions.

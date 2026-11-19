@@ -48,6 +48,7 @@ pub fn app_info(app: AppHandle, state: Shared) -> Value {
         "job": state.job,
         "exportDir": export_dir,
         "projectsDir": projects_dir(&app),
+        "dataDir": projects_dir(&app).trim_end_matches("/Projects").to_string(),
         "ffmpeg": find_ffmpeg().is_some(),
         "exe": std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| "severus-shot".into()),
     })
@@ -262,7 +263,18 @@ pub fn find_ffmpeg() -> Option<PathBuf> {
 }
 
 #[tauri::command(async)]
-pub fn video_start(state: Shared, path: String, fps: u32, width: u32, height: u32) -> Result<u64, String> {
+#[allow(clippy::too_many_arguments)]
+pub fn video_start(
+    state: Shared,
+    path: String,
+    fps: u32,
+    width: u32,
+    height: u32,
+    audio: Option<String>,
+    volume: Option<f32>,
+    duration: Option<f64>,
+    loop_audio: Option<bool>,
+) -> Result<u64, String> {
     use std::process::{Command, Stdio};
     let ffmpeg = find_ffmpeg().ok_or("ffmpeg was not found on this computer")?;
     if width % 2 != 0 || height % 2 != 0 {
@@ -271,8 +283,20 @@ pub fn video_start(state: Shared, path: String, fps: u32, width: u32, height: u3
     ensure_parent(Path::new(&path))?;
     let fps = fps.clamp(1, 60).to_string();
     let mut cmd = Command::new(ffmpeg);
-    cmd.args(["-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", &fps, "-c:v", "mjpeg", "-i", "-"])
-        .args(["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "17", "-preset", "medium", "-movflags", "+faststart", "-r", &fps])
+    cmd.args(["-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", &fps, "-c:v", "mjpeg", "-i", "-"]);
+    let audio = audio.filter(|a| Path::new(a).is_file());
+    if let Some(track) = &audio {
+        // Music: optionally looped, set to the chosen volume, faded out, and cut to the video's length.
+        if loop_audio.unwrap_or(false) {
+            cmd.args(["-stream_loop", "-1"]);
+        }
+        cmd.arg("-i").arg(track);
+        let length = duration.unwrap_or(0.0).max(0.5);
+        let fade = (length - 1.0).max(0.0);
+        let filter = format!("volume={:.2},afade=t=out:st={fade:.2}:d=1", volume.unwrap_or(0.8).clamp(0.0, 1.0));
+        cmd.args(["-map", "0:v:0", "-map", "1:a:0", "-af", &filter, "-c:a", "aac", "-b:a", "160k", "-t", &format!("{length:.3}")]);
+    }
+    cmd.args(["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "17", "-preset", "medium", "-movflags", "+faststart", "-r", &fps])
         .arg(&path)
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
