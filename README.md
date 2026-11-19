@@ -114,6 +114,11 @@ installers and attaches them to a draft release; review it and press Publish.
 The design canvas is 1320×2868. Other sizes scale the layout to fit and centre it, so check tablet and square
 sizes in the preview before exporting.
 
+## Contributors
+
+Created and maintained by [Ali Jasim](https://github.com/stacxiq). See all [Contributors](https://github.com/stacxiq/severus-shot/graphs/contributors).
+Issues and pull requests are welcome.
+
 ## License
 
 [MIT](LICENSE). The bundled fonts (Inter, IBM Plex Sans Arabic) are under the SIL Open Font License.
@@ -176,6 +181,10 @@ irm https://raw.githubusercontent.com/stacxiq/severus-shot/main/scripts/install.
 ### الحالة
 
 الإصدار 0.2.0 إصدار مبكر. إذا واجهت مشكلة فافتح بلاغاً في صفحة Issues.
+
+### المساهمون
+
+أنشأه ويشرف عليه [علي جاسم](https://github.com/stacxiq). قائمة [المساهمين](https://github.com/stacxiq/severus-shot/graphs/contributors) كاملة على GitHub، ونرحّب بالبلاغات وطلبات الدمج.
 
 ### الرخصة
 
