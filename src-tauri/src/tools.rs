@@ -632,6 +632,20 @@ pub fn publish_run(app: AppHandle, dir: String, store: String, key: String, app_
     }
 }
 
+/// Which outside tools this computer has; shown by the in-app diagnostics.
+#[tauri::command(async)]
+pub fn tool_paths() -> Value {
+    let show = |p: Option<PathBuf>| p.map(|x| x.to_string_lossy().into_owned());
+    json!({
+        "fastlane": show(find_tool("fastlane")),
+        "adb": show(find_adb()),
+        "xcrun": show(find_tool("xcrun")),
+        "ffmpeg": show(crate::commands::find_ffmpeg()),
+        "os": std::env::consts::OS,
+        "arch": std::env::consts::ARCH,
+    })
+}
+
 // ---------- Iconify (online icon search) ----------
 
 #[tauri::command(async)]

@@ -54,6 +54,7 @@ export const bridge = {
   onPublishLog(handler) { if (isTauri) T.event.listen('publish-log', (e) => handler(e.payload)); },
   async iconifyGet(path) { need(); return invoke('iconify_get', { path }); },
   async confirm(message, title = 'Severus Shot') { return isTauri ? T.dialog.confirm(message, { title, kind: 'warning' }) : window.confirm(message); },
+  async toolPaths() { need(); return invoke('tool_paths'); },
   rpcReply(id, response) { return invoke('rpc_reply', { id, response }); },
   frontendReady() { return isTauri ? invoke('frontend_ready') : null; },
   cliDone(code, message) { return invoke('cli_done', { code, message }); },

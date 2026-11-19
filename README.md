@@ -72,6 +72,11 @@ build comes from CI and has had the least testing. Please open an issue if somet
 
 Agents get the same features through MCP: `list_devices`, `capture_device`, `setup_local_ai`, `translate_captions`, `remove_background`, `set_listing`, `install_ffmpeg`, and `layout: "fastlane"` on `export`.
 
+## New in 0.8
+
+- **Design assistant.** Press `Ctrl+J` and ask in plain words: "write a stronger headline", "try a tilted layout", "make it dark", "add a rating badge", "translate everything to Arabic". The local model answers and the app carries out the change as one undo step. It uses the built-in model, or your own Ollama / LM Studio model if you set one (a larger model gives noticeably better results).
+- **Diagnostics.** *Run diagnostics* in the command search checks background removal, online icons, device capture, the local AI and updates, and writes `selftest-report.json` to `Documents/Severus Shot`.
+
 ## New in 0.7
 
 - **218 templates.** 198 new designs join the 20 classic layouts: 33 compositions (device from the top, steep tilts, two and three devices, shapes behind, ratings and awards, big-number and statement slides, floating notifications and pills, glass and outline devices) each in six colour looks. The gallery has search, categories, and colour dots that recolour every design at once.
@@ -221,6 +226,11 @@ irm https://raw.githubusercontent.com/stacxiq/severus-shot/main/scripts/install.
 - **ذكاء اصطناعي محلي ومجاني:** `Ctrl+J` يترجم كل العناوين ويقترح عناوين جديدة بنموذج صغير يعمل على حاسوبك. اضغط **إعداد** مرة واحدة فينزّل التطبيق المحرك والنموذج (Gemma 3 1B، نحو 830 ميغابايت) ويشغّلهما بنفسه دون تثبيت أي شيء آخر. النماذج الصغيرة تخطئ، فراجع النتيجة.
 - **فيديو بدون Homebrew:** إن لم يكن ffmpeg مثبتاً، تعرض نافذة الفيديو تنزيله مرة واحدة.
 - **التحقق من التحديثات:** يخبرك التطبيق عند صدور إصدار أحدث على GitHub.
+
+### جديد في 0.8
+
+- **مساعد التصميم:** اضغط `Ctrl+J` واطلب بكلماتك: «اكتب عنواناً أقوى»، «جرّب تخطيطاً مائلاً»، «أضف شارة تقييم»، «ترجم كل شيء إلى العربية». يجيب النموذج المحلي وينفّذ التطبيق التغيير.
+- **الفحص الذاتي:** يتحقق من إزالة الخلفية والأيقونات والالتقاط والذكاء المحلي والتحديثات.
 
 ### جديد في 0.7
 

@@ -297,3 +297,30 @@ test('the design library has 150+ templates that all build cleanly', () => {
   assert.equal(M.inkOn('#c6f432'), '#141414');
   assert.equal(M.inkOn('#18181b'), '#ffffff');
 });
+
+// ----- design assistant -----
+import { parseChatReply, runChatActions, chatContext, chatSystem } from '../ui/js/ai.js';
+
+test('the design assistant parses replies and carries out actions', async () => {
+  const messy = 'Sure!\n```json\n{"reply":"Done.","actions":[{"do":"set_title","text":"\\"Order in seconds\\""},{"do":"format_disk"},{"do":"change_colors","style":"Noir"},{"do":"add_badge","kind":"rating"},{"do":"change_layout","style":"tilted"}]}\n```';
+  const { reply, actions } = parseChatReply(messy);
+  assert.equal(reply, 'Done.');
+  assert.deepEqual(actions.map((a) => a.do), ['set_title', 'change_colors', 'add_badge', 'change_layout']);
+  assert.equal(actions[0].text, 'Order in seconds');
+  assert.deepEqual(parseChatReply('just words').actions, []);
+
+  const studio = new TestStudio();
+  const before = studio.slide.elements.length;
+  const done = await runChatActions(studio, M, actions.slice(0, 3), null);
+  assert.equal(done.length, 3);
+  assert.equal(studio.slide.elements.find((e) => e.type === 'text').text.en, 'Order in seconds');
+  assert.deepEqual(studio.slide.background, M.makeBackground(M.LOOKS.noir.bg));
+  assert.equal(studio.slide.elements.length, before + 1);
+  assert.ok(studio.slide.elements.some((e) => e.type === 'sticker' && e.kind === 'rating'));
+  await runChatActions(studio, M, [{ do: 'change_layout', style: 'tilted' }, { do: 'add_slide' }], null);
+  assert.equal(studio.project.slides.length, 2);
+  assert.equal(studio.slide.elements.find((e) => e.type === 'text').text.en, 'Order in seconds');
+  const sys = chatSystem(chatContext(studio, M));
+  assert.ok(sys.includes('Order in seconds') && sys.includes('noir') && sys.includes('Slide 2 of 2'));
+  await studio.undo?.();
+});

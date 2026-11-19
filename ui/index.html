@@ -28,7 +28,7 @@
   <select id="langSel" title="Caption language" data-no-i18n></select>
   <button id="uiLang" data-act="ui-lang" data-icon="globe" class="ghost" title="Switch interface language" data-no-i18n><span></span></button>
   <button id="updBadge" class="badge on ghost" data-act="update-open" data-icon="download" title="A new version is available" hidden data-no-i18n><span></span></button>
-  <button data-act="ai" data-icon="agents" class="ghost" title="Local AI: translate and write captions (Ctrl+J)"><span>AI</span></button>
+  <button data-act="chat" data-icon="agents" class="ghost" title="Design assistant (Ctrl+J)"><span>AI</span></button>
   <button id="mcpBadge" class="badge ghost" data-act="agents" data-icon="agents" title="Agent control (MCP)"><span>Agents</span></button>
   <button data-act="video" data-icon="play" title="Motion video (Ctrl+Shift+E)"><span>Video</span></button>
   <button class="primary" data-act="export" data-icon="export" title="Export images (Ctrl+E)"><span>Export</span></button>
@@ -181,6 +181,15 @@
     <div id="lsFields" class="lsFields"></div>
     <p id="lsStatus" class="status" data-no-i18n></p>
     <div class="actions"><button value="cancel" class="primary">Done</button></div>
+  </form>
+</dialog>
+
+<dialog id="chatDlg" class="chat">
+  <form method="dialog" class="chatBox">
+    <div class="chatHead"><b>Design assistant</b><small id="chatModel" data-no-i18n></small><span class="spacer"></span><button type="button" class="ghost" data-act="ai">Settings</button><button value="cancel" class="x ghost" title="Close">×</button></div>
+    <div id="chatLog" class="chatLog" data-no-i18n></div>
+    <div id="chatHints" class="aiIdeas" data-no-i18n></div>
+    <div class="chatInput"><textarea id="chatText" rows="2" dir="auto" placeholder="Ask for a change: a stronger headline, another layout, new colours…"></textarea><button type="button" class="primary" data-act="chat-send">Send</button></div>
   </form>
 </dialog>
 

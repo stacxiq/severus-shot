@@ -100,6 +100,7 @@ fn run(job: Option<cli::ExportJob>) {
             tools::app_restart,
             tools::publish_run,
             tools::iconify_get,
+            tools::tool_paths,
         ])
         .setup(move |app| {
             if let Ok(docs) = app.path().document_dir().or_else(|_| app.path().home_dir()) {

@@ -553,6 +553,11 @@ export function applyTemplate(slide, templateId, themeId) {
 export function applyTheme(slide, themeId) {
   const t = THEMES[themeId];
   if (!t) throw new Error(`Unknown theme: ${themeId}`);
+  return applyPalette(slide, t);
+}
+
+// Recolour a slide with any palette of the theme shape (a theme or a design look).
+export function applyPalette(slide, t) {
   slide.background = makeBackground(t.bg);
   let n = 0;
   for (const e of slide.elements) {

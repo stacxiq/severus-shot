@@ -3,7 +3,7 @@ import * as M from './model.js';
 import { bridge, isTauri } from './bridge.js';
 import { t, localize } from './i18n.js';
 import { icon } from './icons.js';
-import { AI_DEFAULTS, LANG_NAMES, LocalAI, langName, normalizeSettings, translateProject, draftListing, translateListing } from './ai.js';
+import { AI_DEFAULTS, LANG_NAMES, LocalAI, langName, normalizeSettings, translateProject, draftListing, translateListing, CHAT_SCHEMA, chatSystem, chatContext, parseChatReply, runChatActions } from './ai.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -228,14 +228,14 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
     const about = $('#lsAbout').value.trim();
     if (!about) throw new Error(t('Describe the app in a sentence first.'));
     const lang = lsLang(), name = ((studio.project.listing || {})[lang] || {}).name || studio.project.name;
-    await saveListing(lang, await draftListing(await ai(), about, lang, name));
+    await saveListing(lang, await draftListing(await aiClient(), about, lang, name));
     drawListing();
     lsStatus(t('Draft ready. Edit it before you publish: small models make mistakes.'));
   });
   const translateLs = (b) => lsBusy(b, t('Translating…'), async () => {
     const from = $('#lsFrom').value, to = lsLang();
     if (!from) throw new Error(t('Add a second language to the project first.'));
-    const fields = await translateListing(await ai(), (studio.project.listing || {})[from], from, to, M.LISTING_FIELDS);
+    const fields = await translateListing(await aiClient(), (studio.project.listing || {})[from], from, to, M.LISTING_FIELDS);
     if (!Object.keys(fields).length) throw new Error(t('There is no store text in {0} to translate yet.', from));
     await saveListing(to, fields);
     drawListing();
@@ -326,7 +326,7 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
   async function translate(b) {
     await busy(b, t('Translating…'), async () => {
       aiStatus(t('Starting the model…'));
-      const client = await ai();
+      const client = await aiClient();
       aiStatus(t('Translating…'));
       const r = await translateProject(studio, client, {
         from: $('#aiFrom').value, to: $('#aiTo').value.trim(), overwrite: $('#aiOver').checked,
@@ -339,7 +339,7 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
   async function suggest(b) {
     const about = $('#aiAbout').value.trim() || studio.project.name;
     await busy(b, t('Writing ideas…'), async () => {
-      const ideas = await (await ai()).suggest(about, studio.lang, 4);
+      const ideas = await (await aiClient()).suggest(about, studio.lang, 4);
       $('#aiIdeas').innerHTML = ideas.map((s) => `<button type="button" data-idea="${esc(s)}" dir="auto">${esc(s)}</button>`).join('');
       aiStatus(ideas.length ? t('Click an idea to use it for the selected caption.') : t('The model did not return usable ideas. Try again or describe the app in more detail.'));
     });
@@ -355,6 +355,110 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
     studio.emit();
     aiStatus(t('Caption updated.'));
   }));
+
+  /* ---------- design assistant chat ---------- */
+  const history = [];
+  let chatBusy = false;
+  const HINTS = ['Write a stronger headline', 'Try a different layout', 'Change the colours', 'Add a rating badge', 'Translate everything to Arabic'];
+  function bubble(kind, text, list = []) {
+    const div = document.createElement('div');
+    div.className = `msg ${kind}`;
+    div.dir = 'auto';
+    div.textContent = text;
+    if (list.length) { const ul = document.createElement('ul'); for (const item of list) { const li = document.createElement('li'); li.textContent = item; ul.appendChild(li); } div.appendChild(ul); }
+    $('#chatLog').appendChild(div);
+    $('#chatLog').scrollTop = $('#chatLog').scrollHeight;
+    return div;
+  }
+  async function openChat() {
+    const d = $('#chatDlg');
+    localize(d);
+    $('#chatHints').innerHTML = HINTS.map((h) => `<button type="button" data-hint="${esc(h)}">${esc(t(h))}</button>`).join('');
+    if (!d.open) d.show(); // not modal: the slide stays visible and editable while you talk
+    if (!$('#chatLog').children.length) bubble('ai', t('Tell me what to change on this slide. I can rewrite captions, switch the layout or colours, add badges, add slides and translate.'));
+    const s = aiSettings();
+    $('#chatModel').textContent = s.mode === 'server' ? s.model : 'Gemma 3 1B';
+    setTimeout(() => $('#chatText').focus(), 30);
+  }
+  async function sendChat(text) {
+    const msg = String(text || $('#chatText').value).trim();
+    if (!msg || chatBusy) return;
+    chatBusy = true;
+    $('#chatText').value = '';
+    bubble('me', msg);
+    const wait = bubble('ai', t('Thinking…'));
+    try {
+      const client = await aiClient();
+      history.push({ role: 'user', content: msg });
+      const raw = await client.chat([{ role: 'system', content: chatSystem(chatContext(studio, M)) }, ...history.slice(-6)], { schema: CHAT_SCHEMA, temperature: 0.5, maxTokens: 400 });
+      const { reply, actions } = parseChatReply(raw);
+      history.push({ role: 'assistant', content: JSON.stringify({ reply, actions }) });
+      const done = await runChatActions(studio, M, actions, client);
+      wait.remove();
+      bubble('ai', reply, done.map((x) => `✓ ${x}`));
+      if (done.length) studio.emit('project');
+    } catch (err) {
+      wait.remove();
+      bubble('ai err', err && err.code === 'setup' ? t('The local AI is not set up yet. Press Settings, then “Set up”: it is a one-time download.') : String(err && err.message ? err.message : err));
+    } finally { chatBusy = false; }
+  }
+  $('#chatText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } e.stopPropagation(); });
+  $('#chatHints').addEventListener('click', (e) => { const b = e.target.closest('[data-hint]'); if (b) sendChat(t(b.dataset.hint)); });
+
+  /* ---------- diagnostics: checks every integration and writes a report ---------- */
+  async function runDiagnostics(nonce = '') {
+    const report = { nonce, when: new Date().toISOString(), agent: navigator.userAgent, checks: {} };
+    const check = async (name, fn) => { const t0 = performance.now(); try { report.checks[name] = { ok: true, ...(await fn()), ms: Math.round(performance.now() - t0) }; } catch (err) { report.checks[name] = { ok: false, error: String(err && err.message ? err.message : err), ms: Math.round(performance.now() - t0) }; } };
+    await check('tools', async () => ({ ...(await bridge.toolPaths()), version: (await bridge.info()).version }));
+    await check('background_removal', async () => {
+      const c = Object.assign(document.createElement('canvas'), { width: 400, height: 400 }), x = c.getContext('2d');
+      x.fillStyle = '#e4e6ea'; x.fillRect(0, 0, 400, 400);
+      x.fillStyle = '#d2282f'; x.beginPath(); x.arc(200, 200, 115, 0, Math.PI * 2); x.fill();
+      const img = new Image(); img.src = c.toDataURL('image/png'); await img.decode();
+      const { removeBackground } = await import('./cutout.js');
+      const out = (await removeBackground(img)).getContext('2d').getImageData(0, 0, 400, 400).data;
+      const alpha = (px, py) => out[(py * 400 + px) * 4 + 3];
+      const r = { centreAlpha: alpha(200, 200), cornerAlpha: alpha(8, 8) };
+      if (r.centreAlpha < 200 || r.cornerAlpha > 40) throw new Error(`unexpected mask: centre ${r.centreAlpha}, corner ${r.cornerAlpha}`);
+      return r;
+    });
+    await check('iconify', async () => {
+      const found = JSON.parse(await bridge.iconifyGet('search?query=home&limit=12')).icons || [];
+      if (!found.length) throw new Error('the search returned nothing');
+      const svg = await bridge.iconifyGet(`${found[0].replace(':', '/')}.svg?color=%23ffffff&height=512`);
+      const img = new Image(); img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`; await img.decode();
+      return { results: found.length, first: found[0], width: img.naturalWidth, height: img.naturalHeight };
+    });
+    await check('capture', async () => {
+      const r = await bridge.captureDevices();
+      const out = { devices: r.devices.map((d) => `${d.kind}:${d.name}`), adb: r.adb, simulators: r.simulators };
+      if (r.devices[0]) { const path = `${studio.dataDir}/Captures/selftest.png`; await bridge.captureScreenshot(r.devices[0].kind, r.devices[0].id, path); out.captured = path; }
+      return out;
+    });
+    await check('local_ai', async () => {
+      const st = await bridge.aiLocalStatus();
+      const out = { engine: st.engine, model: st.model, supported: st.supported, ownServer: aiSettings().mode === 'server' };
+      if (!(st.engine && st.model) && !out.ownServer) return { ...out, note: 'not set up yet' };
+      const client = await aiClient();
+      out.translation = await client.translate('Order food in seconds', 'en', 'ar');
+      const parsed = parseChatReply(await client.chat([{ role: 'system', content: chatSystem(chatContext(studio, M)) }, { role: 'user', content: 'Make the headline shorter and add a rating badge.' }], { schema: CHAT_SCHEMA, temperature: 0.3, maxTokens: 300 }));
+      out.chatReply = parsed.reply; out.chatActions = parsed.actions;
+      return out;
+    });
+    await check('update', async () => bridge.checkUpdate());
+    await check('listing_export', async () => ({ fields: M.LISTING_FIELDS.length, files: M.listingFiles({ listing: { en: { name: 'A', description: 'B' } } }, ['en']).length }));
+    if (bridge.isTauri && studio.dataDir) await bridge.writeText(`${studio.dataDir}/selftest-report.json`, JSON.stringify(report, null, 2));
+    return report;
+  }
+  // A request file lets support (or an agent) ask the app to check itself on the next start.
+  async function diagnosticsOnRequest() {
+    if (!isTauri || !studio.dataDir) return;
+    let nonce;
+    try { nonce = (await bridge.readText(`${studio.dataDir}/selftest.request`)).trim(); } catch (_) { return; }
+    let last = '';
+    try { last = JSON.parse(await bridge.readText(`${studio.dataDir}/selftest-report.json`)).nonce; } catch (_) { /* no report yet */ }
+    if (nonce && nonce !== last) await runDiagnostics(nonce);
+  }
 
   /* ---------- ffmpeg ---------- */
   async function installFfmpeg(b) {
@@ -413,10 +517,14 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
 
   return {
     checkUpdate,
+    diagnosticsOnRequest,
     actions: {
       capture: async () => { if (!isTauri) throw new Error(t('Capture needs the desktop app.')); show('#captureDlg'); await drawCapture(); },
       'capture-refresh': drawCapture,
       ai: () => { drawAi(); show('#aiDlg'); },
+      chat: openChat,
+      'chat-send': () => sendChat(),
+      diagnostics: async () => { toast(t('Checking… this takes a moment.')); const r = await runDiagnostics(); const bad = Object.entries(r.checks).filter(([, v]) => !v.ok).map(([k]) => k); toast(bad.length ? t('Problems found: {0}. See selftest-report.json in Documents/Severus Shot.', bad.join(', ')) : t('Everything checked out.'), !!bad.length); },
       'ai-setup': setupAi,
       'ai-test': testAi,
       'ai-pull': pullAi,

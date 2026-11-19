@@ -347,7 +347,7 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
     ['Templates', 'tab:templates', 'G'], ['Elements', 'tab:elements', 'E'], ['Icons', 'tab:icons', 'I'], ['Fonts', 'tab:fonts', 'F'],
     ['Add text', 'add-text', 'T'], ['Add screenshot', 'add-screenshot', 'S'], ['Add logo or image', 'add-logo', 'L'], ['New slide', 'slide-add', 'Ctrl Enter'],
     ['Duplicate slide', 'slide-dup', ''], ['Delete slide', 'slide-del', ''], ['Undo', 'undo', 'Ctrl Z'], ['Redo', 'redo', 'Ctrl Shift Z'],
-    ['Capture from a simulator or phone', 'capture', 'Ctrl Shift S'], ['Local AI: translate and write captions', 'ai', 'Ctrl J'], ['Store listing text', 'listing', ''], ['Check for updates', 'update-check', ''], ['Connect an AI agent', 'agents', ''], ['Keyboard shortcuts', 'shortcuts', '?'], ['Switch interface language', 'ui-lang', ''],
+    ['Capture from a simulator or phone', 'capture', 'Ctrl Shift S'], ['Design assistant (AI chat)', 'chat', 'Ctrl J'], ['Local AI settings and translation', 'ai', ''], ['Run diagnostics', 'diagnostics', ''], ['Store listing text', 'listing', ''], ['Check for updates', 'update-check', ''], ['Connect an AI agent', 'agents', ''], ['Keyboard shortcuts', 'shortcuts', '?'], ['Switch interface language', 'ui-lang', ''],
   ];
   let palIndex = 0, palHits = [];
   function drawPalette() {

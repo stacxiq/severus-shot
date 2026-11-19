@@ -549,7 +549,7 @@ document.addEventListener('keydown', guard(async (e) => {
   if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); await actions.palette(); return; }
   if (document.querySelector('dialog[open]')) return;
   if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); await actions.new(); return; }
-  if (mod && e.key.toLowerCase() === 'j') { e.preventDefault(); await actions.ai(); return; }
+  if (mod && e.key.toLowerCase() === 'j') { e.preventDefault(); await actions.chat(); return; }
   if (mod && e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); await actions.capture(); return; }
   if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); await (e.shiftKey ? actions.video() : actions.export()); return; }
   if (mod && e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); await actions[e.key === 'ArrowRight' ? 'proj-next' : 'proj-prev'](); return; }
@@ -653,5 +653,6 @@ async function runJob(job) {
   }
   await bridge.frontendReady();
   extras.checkUpdate(true);
+  extras.diagnosticsOnRequest().catch((err) => console.warn('diagnostics failed', err));
   bridge.listFonts().then((fonts) => { studio.systemFonts = fonts; if (!quiet) refreshPanel(); }).catch(() => null);
 })();
