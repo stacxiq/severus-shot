@@ -92,6 +92,9 @@ fn run(job: Option<cli::ExportJob>) {
             tools::capture_devices,
             tools::capture_screenshot,
             tools::ai_request,
+            tools::ai_local_status,
+            tools::ai_local_setup,
+            tools::ai_local_start,
         ])
         .setup(move |app| {
             if let Ok(docs) = app.path().document_dir().or_else(|_| app.path().home_dir()) {
@@ -109,6 +112,12 @@ fn run(job: Option<cli::ExportJob>) {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("failed to start Severus Shot");
+        .build(tauri::generate_context!())
+        .expect("failed to start Severus Shot")
+        .run(|_app, event| {
+            // The built-in AI server is a child process; do not leave it running after the window closes.
+            if let tauri::RunEvent::Exit = event {
+                tools::ai_stop();
+            }
+        });
 }

@@ -1,13 +1,14 @@
 // Integrations with things outside the app: ffmpeg download, update check,
 // simulator / device capture, and a local AI model server.
 use std::fs;
-use std::io::Read;
-use std::path::PathBuf;
-use std::process::Command;
-use std::sync::OnceLock;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use serde_json::{json, Value};
+use tauri::{AppHandle, Emitter};
 
 /// `<Documents>/Severus Shot/bin`, where a downloaded ffmpeg is kept.
 pub static BIN_DIR: OnceLock<PathBuf> = OnceLock::new();
@@ -269,6 +270,221 @@ pub fn ai_request(url: String, body: Option<Value>, timeout: Option<u64>) -> Res
     let mut text = String::new();
     resp.into_reader().take(16 * 1024 * 1024).read_to_string(&mut text).map_err(|e| e.to_string())?;
     serde_json::from_str(&text).map_err(|_| format!("The AI server did not answer with JSON: {}", text.chars().take(200).collect::<String>()))
+}
+
+// ---------- built-in AI: a small model that the app downloads and runs itself ----------
+
+const LLAMA_BUILD: &str = "b12554";
+const MODEL_FILE: &str = "gemma-3-1b-it-Q4_K_M.gguf";
+const MODEL_URL: &str = "https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf";
+const MODEL_MIN_BYTES: u64 = 500 * 1024 * 1024;
+pub const AI_PORT: u16 = 47823;
+
+static AI_SERVER: Mutex<Option<Child>> = Mutex::new(None);
+static AI_SETUP_RUNNING: Mutex<bool> = Mutex::new(false);
+
+fn ai_dir() -> Result<PathBuf, String> {
+    BIN_DIR.get().and_then(|b| b.parent()).map(|p| p.join("AI")).ok_or_else(|| "The app data folder is not available".to_string())
+}
+
+fn runtime_asset() -> Result<String, String> {
+    let name = match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("macos", "aarch64") => "bin-macos-arm64.tar.gz",
+        ("macos", "x86_64") => "bin-macos-x64.tar.gz",
+        ("linux", "x86_64") => "bin-ubuntu-x64.tar.gz",
+        ("linux", "aarch64") => "bin-ubuntu-arm64.tar.gz",
+        ("windows", "x86_64") => "bin-win-cpu-x64.zip",
+        ("windows", "aarch64") => "bin-win-cpu-arm64.zip",
+        (os, arch) => return Err(format!("The built-in AI is not available for {os} {arch}. Use your own server instead.")),
+    };
+    Ok(format!("llama-{LLAMA_BUILD}-{name}"))
+}
+
+fn find_file(dir: &Path, name: &str, depth: u8) -> Option<PathBuf> {
+    let entries = fs::read_dir(dir).ok()?;
+    let mut subdirs = Vec::new();
+    for e in entries.flatten() {
+        let p = e.path();
+        if p.is_file() && p.file_name().map(|n| n == name).unwrap_or(false) {
+            return Some(p);
+        }
+        if p.is_dir() {
+            subdirs.push(p);
+        }
+    }
+    if depth == 0 {
+        return None;
+    }
+    subdirs.into_iter().find_map(|d| find_file(&d, name, depth - 1))
+}
+
+fn ai_engine() -> Option<PathBuf> {
+    let exe = if cfg!(windows) { "llama-server.exe" } else { "llama-server" };
+    find_file(&ai_dir().ok()?.join("engine"), exe, 3)
+}
+
+fn ai_model() -> Option<PathBuf> {
+    let p = ai_dir().ok()?.join(MODEL_FILE);
+    (p.is_file() && fs::metadata(&p).map(|m| m.len() >= MODEL_MIN_BYTES).unwrap_or(false)).then_some(p)
+}
+
+fn ai_healthy() -> bool {
+    ureq::AgentBuilder::new()
+        .timeout(Duration::from_secs(2))
+        .build()
+        .get(&format!("http://127.0.0.1:{AI_PORT}/health"))
+        .call()
+        .map(|r| r.status() == 200)
+        .unwrap_or(false)
+}
+
+/// Download with progress events, resuming a partial file when the server allows it.
+fn download(app: &AppHandle, step: &str, url: &str, dest: &Path) -> Result<u64, String> {
+    let part = dest.with_extension("part");
+    let have = fs::metadata(&part).map(|m| m.len()).unwrap_or(0);
+    let mut req = http(6 * 3600).get(url);
+    if have > 0 {
+        req = req.set("Range", &format!("bytes={have}-"));
+    }
+    let resp = req.call().map_err(|e| http_error("The download failed", e))?;
+    let resumed = resp.status() == 206;
+    let length: u64 = resp.header("Content-Length").and_then(|v| v.parse().ok()).unwrap_or(0);
+    let start = if resumed { have } else { 0 };
+    let total = if length > 0 { start + length } else { 0 };
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(resumed)
+        .truncate(!resumed)
+        .open(&part)
+        .map_err(|e| format!("Cannot write {}: {e}", part.display()))?;
+    let mut reader = resp.into_reader();
+    let mut buf = vec![0u8; 256 * 1024];
+    let (mut done, mut last) = (start, 0u64);
+    loop {
+        let n = reader.read(&mut buf).map_err(|e| format!("The download stopped: {e}. Press the button again to continue."))?;
+        if n == 0 {
+            break;
+        }
+        file.write_all(&buf[..n]).map_err(|e| format!("Cannot write {}: {e}", part.display()))?;
+        done += n as u64;
+        if done - last >= 2 * 1024 * 1024 {
+            last = done;
+            let _ = app.emit("ai-progress", json!({ "step": step, "done": done, "total": total }));
+        }
+    }
+    drop(file);
+    if total > 0 && done < total {
+        return Err("The download was cut off. Press the button again to continue.".into());
+    }
+    let _ = fs::remove_file(dest);
+    fs::rename(&part, dest).map_err(|e| format!("Cannot save {}: {e}", dest.display()))?;
+    let _ = app.emit("ai-progress", json!({ "step": step, "done": done, "total": done }));
+    Ok(done)
+}
+
+#[tauri::command(async)]
+pub fn ai_local_status() -> Value {
+    json!({
+        "engine": ai_engine().is_some(),
+        "model": ai_model().is_some(),
+        "running": ai_healthy(),
+        "supported": runtime_asset().is_ok(),
+        "base": format!("http://127.0.0.1:{AI_PORT}/v1"),
+        "modelName": "gemma-3-1b-it",
+        "downloadMb": 830,
+    })
+}
+
+/// One-time setup: fetch the engine (llama.cpp) and the model into `<Documents>/Severus Shot/AI`.
+#[tauri::command(async)]
+pub fn ai_local_setup(app: AppHandle) -> Result<Value, String> {
+    {
+        let mut running = AI_SETUP_RUNNING.lock().unwrap();
+        if *running {
+            return Err("The setup is already running".into());
+        }
+        *running = true;
+    }
+    let result = ai_setup_inner(&app);
+    *AI_SETUP_RUNNING.lock().unwrap() = false;
+    result
+}
+
+fn ai_setup_inner(app: &AppHandle) -> Result<Value, String> {
+    let dir = ai_dir()?;
+    fs::create_dir_all(&dir).map_err(|e| format!("Cannot create {}: {e}", dir.display()))?;
+    if ai_engine().is_none() {
+        let asset = runtime_asset()?;
+        let archive = dir.join(&asset);
+        let url = format!("https://github.com/ggml-org/llama.cpp/releases/download/{LLAMA_BUILD}/{asset}");
+        download(app, "engine", &url, &archive)?;
+        let engine = dir.join("engine");
+        let _ = fs::remove_dir_all(&engine);
+        fs::create_dir_all(&engine).map_err(|e| e.to_string())?;
+        // tar ships with macOS, Linux and Windows 10+, and reads both .tar.gz and .zip there.
+        let out = Command::new("tar").arg("-xf").arg(&archive).arg("-C").arg(&engine).output().map_err(|e| format!("Could not unpack the AI engine: {e}"))?;
+        let _ = fs::remove_file(&archive);
+        if !out.status.success() {
+            return Err(format!("Could not unpack the AI engine: {}", String::from_utf8_lossy(&out.stderr).trim()));
+        }
+        if ai_engine().is_none() {
+            return Err("The AI engine download did not contain llama-server".into());
+        }
+    }
+    if ai_model().is_none() {
+        download(app, "model", MODEL_URL, &dir.join(MODEL_FILE))?;
+        if ai_model().is_none() {
+            return Err("The model download is incomplete. Press the button again.".into());
+        }
+    }
+    Ok(ai_local_status())
+}
+
+/// Start the built-in model server if it is not answering yet, and wait until it is ready.
+#[tauri::command(async)]
+pub fn ai_local_start() -> Result<Value, String> {
+    if ai_healthy() {
+        return Ok(ai_local_status());
+    }
+    let (engine, model) = (ai_engine().ok_or("The built-in AI is not set up yet")?, ai_model().ok_or("The built-in AI model is not downloaded yet")?);
+    let mut guard = AI_SERVER.lock().unwrap();
+    if let Some(mut old) = guard.take() {
+        let _ = old.kill();
+        let _ = old.wait();
+    }
+    let mut cmd = Command::new(&engine);
+    cmd.arg("-m").arg(&model).args(["--host", "127.0.0.1", "--port", &AI_PORT.to_string(), "-c", "4096"]);
+    if let Some(dir) = engine.parent() {
+        cmd.current_dir(dir);
+    }
+    cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // no console window
+    }
+    let mut child = cmd.spawn().map_err(|e| format!("Could not start the built-in AI: {e}"))?;
+    for _ in 0..240 {
+        if ai_healthy() {
+            *guard = Some(child);
+            return Ok(ai_local_status());
+        }
+        if let Ok(Some(status)) = child.try_wait() {
+            return Err(format!("The built-in AI stopped while starting ({status}). This computer may not have enough free memory."));
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    Err("The built-in AI took too long to start".into())
+}
+
+pub fn ai_stop() {
+    if let Some(mut child) = AI_SERVER.lock().unwrap().take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
 }
 
 #[cfg(test)]

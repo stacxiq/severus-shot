@@ -11,7 +11,8 @@ export const langName = (code) => LANG_NAMES[String(code).toLowerCase()] || LANG
 
 export function normalizeSettings(s = {}) {
   const base = String(s.base || AI_DEFAULTS.base).trim().replace(/\/+$/, '');
-  return { base, model: String(s.model || AI_DEFAULTS.model).trim() };
+  // 'builtin' = the model the app downloads and runs itself; 'server' = the user's own Ollama / LM Studio.
+  return { mode: s.mode === 'server' ? 'server' : 'builtin', base, model: String(s.model || AI_DEFAULTS.model).trim() };
 }
 
 // Small models like to wrap answers in quotes, labels or "thinking" blocks. Keep only the answer.

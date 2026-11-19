@@ -230,6 +230,6 @@ test('the new agent tools are listed', async () => {
   const handle = createRpcHandler(new TestStudio(), {});
   const r = await rpc(handle, 'tools/list', {});
   const names = r.result.tools.map((x) => x.name);
-  for (const n of ['list_devices', 'capture_device', 'install_ffmpeg', 'translate_captions']) assert.ok(names.includes(n), n);
+  for (const n of ['list_devices', 'capture_device', 'install_ffmpeg', 'setup_local_ai', 'translate_captions']) assert.ok(names.includes(n), n);
   assert.deepEqual(r.result.tools.find((x) => x.name === 'export').inputSchema.properties.layout.enum, ['folders', 'fastlane']);
 });

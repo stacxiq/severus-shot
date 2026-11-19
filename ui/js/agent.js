@@ -1,8 +1,8 @@
 // MCP (Model Context Protocol) tools. The Rust side only transports JSON-RPC; all behaviour lives here.
 import * as M from './model.js';
 import { bridge } from './bridge.js';
-import { LocalAI, translateProject } from './ai.js';
-import { aiSettings, captureInto } from './extras.js';
+import { translateProject } from './ai.js';
+import { aiClient, captureInto } from './extras.js';
 
 const str = (description, extra = {}) => ({ type: 'string', description, ...extra });
 const numb = (description) => ({ type: 'number', description });
@@ -469,10 +469,16 @@ export function buildTools(studio) {
       run: async () => { const r = await bridge.ffmpegInstall(); studio.hasFfmpeg = true; return r; },
     },
     {
+      name: 'setup_local_ai',
+      description: 'One-time setup of the built-in local AI model (Gemma 3 1B through llama.cpp): downloads about 830 MB into the app folder, then starts it. Ask the user before calling this. Needed once before translate_captions unless the user runs their own model server.',
+      inputSchema: obj({}),
+      run: async () => { await bridge.aiLocalSetup(); return bridge.aiLocalStart(); },
+    },
+    {
       name: 'translate_captions',
-      description: 'Translate every caption from one project language to another with the local AI model configured in the app (free, offline; default Ollama gemma3:1b). Adds the target language to the project. An agent that can translate well itself should prefer set_text.',
+      description: 'Translate every caption from one project language to another with the local AI model of the app (free, offline; the built-in Gemma 3 1B once the user has set it up in the AI window, or their own Ollama server). Adds the target language to the project. An agent that can translate well itself should prefer set_text.',
       inputSchema: obj({ from: str('Source language code. Default: the first project language'), to: str('Target language code, e.g. ar'), overwrite: bool('Also replace captions that already have a translation') }, ['to']),
-      run: async (a) => translateProject(studio, new LocalAI(bridge.aiRequest, aiSettings()), a),
+      run: async (a) => translateProject(studio, await aiClient(), a),
     },
   ];
 }

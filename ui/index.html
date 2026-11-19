@@ -135,10 +135,9 @@
 <dialog id="aiDlg">
   <form method="dialog" class="dlg">
     <h2>Local AI</h2>
-    <p>Translate and write captions with a small free model that runs on this computer. Nothing is sent to the cloud. It works with Ollama, LM Studio or any OpenAI-compatible server.</p>
-    <label class="row"><span>Server</span> <input id="aiBase" type="text" spellcheck="false" dir="ltr" style="flex:1"></label>
-    <label class="row"><span>Model</span> <input id="aiModel" type="text" spellcheck="false" dir="ltr" list="aiModels" style="flex:1"><datalist id="aiModels"></datalist>
-      <button type="button" data-act="ai-test">Test</button><button type="button" data-act="ai-pull" data-icon="download" title="Download this model with Ollama"><span>Download</span></button></label>
+    <p>Translate and write captions with a small free model that runs on this computer. Nothing is sent to the cloud.</p>
+    <div class="aiSetup"><div><b id="aiState" data-no-i18n></b><small id="aiHint" data-no-i18n></small></div><button type="button" class="primary" id="aiSetupBtn" data-act="ai-setup" data-icon="download" hidden><span>Set up</span></button></div>
+    <progress id="aiBar" max="100" value="0" hidden></progress>
     <h3>Translate captions</h3>
     <label class="row"><span>From</span> <select id="aiFrom" data-no-i18n></select> <span>To</span> <input id="aiTo" type="text" dir="ltr" size="7" placeholder="ar" list="aiLangs"><datalist id="aiLangs"></datalist>
       <button type="button" class="primary" data-act="ai-translate">Translate</button></label>
@@ -147,6 +146,12 @@
     <label class="row"><span>About</span> <input id="aiAbout" type="text" style="flex:1" placeholder="What the app or this screen does"><button type="button" data-act="ai-suggest">Suggest</button></label>
     <div id="aiIdeas" class="aiIdeas" data-no-i18n></div>
     <p id="aiStatus" class="status" data-no-i18n></p>
+    <details id="aiAdv" class="aiAdv"><summary>Use my own model server (Ollama, LM Studio)</summary>
+      <label class="check"><input type="checkbox" id="aiOwn"> <span>Use this server instead of the built-in model</span></label>
+      <label class="row"><span>Server</span> <input id="aiBase" type="text" spellcheck="false" dir="ltr" style="flex:1"></label>
+      <label class="row"><span>Model</span> <input id="aiModel" type="text" spellcheck="false" dir="ltr" list="aiModels" style="flex:1"><datalist id="aiModels"></datalist>
+        <button type="button" data-act="ai-test">Test</button><button type="button" data-act="ai-pull" data-icon="download" title="Download this model with Ollama"><span>Download</span></button></label>
+    </details>
     <div class="actions"><button value="cancel" class="primary">Done</button></div>
   </form>
 </dialog>

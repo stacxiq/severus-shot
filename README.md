@@ -66,11 +66,11 @@ build comes from CI and has had the least testing. Please open an issue if somet
 
 - **Upload with fastlane.** Export with the *fastlane* layout (or `--layout fastlane`) and the folders are ready for `fastlane deliver` (App Store) and `fastlane supply` (Google Play). The app shows the exact commands after the export.
 - **Capture from a simulator or phone.** `Ctrl+Shift+S` lists running iOS simulators, Android emulators and connected Android phones, and drops a fresh screenshot onto the slide, already framed. Needs Xcode for simulators and `adb` for Android.
-- **Local AI, free and offline.** `Ctrl+J` translates every caption into another language and suggests new captions with a small model on your own computer. It talks to [Ollama](https://ollama.com), LM Studio or any OpenAI-compatible server; the default model is `gemma3:1b`. Small models make mistakes, so read the result before you ship it.
+- **Local AI, free and offline.** `Ctrl+J` translates every caption into another language and suggests new captions with a small model on your own computer. Press **Set up** once: the app downloads its own engine ([llama.cpp](https://github.com/ggml-org/llama.cpp)) and the Gemma 3 1B model (about 830 MB, under the [Gemma terms](https://ai.google.dev/gemma/terms)) into `Documents/Severus Shot/AI` and runs them for you. Nothing else to install. If you already run Ollama or LM Studio, you can point the app at that instead. Small models make mistakes, so read the result before you ship it.
 - **Video without Homebrew.** If ffmpeg is missing, the Video window offers a one-time download (a static build from [ffmpeg-static](https://github.com/eugeneware/ffmpeg-static), GPL) into `Documents/Severus Shot/bin`.
 - **Update check.** The app tells you when a newer release is on GitHub.
 
-Agents get the same features through MCP: `list_devices`, `capture_device`, `translate_captions`, `install_ffmpeg`, and `layout: "fastlane"` on `export`.
+Agents get the same features through MCP: `list_devices`, `capture_device`, `setup_local_ai`, `translate_captions`, `install_ffmpeg`, and `layout: "fastlane"` on `export`.
 
 ## Command line
 
@@ -205,7 +205,7 @@ irm https://raw.githubusercontent.com/stacxiq/severus-shot/main/scripts/install.
 
 - **الرفع عبر fastlane:** صدّر بتخطيط *fastlane* فتصبح المجلدات جاهزة لأمري `fastlane deliver` (App Store) و `fastlane supply` (Google Play).
 - **الالتقاط من المحاكي أو الهاتف:** `Ctrl+Shift+S` يلتقط لقطة من محاكي iOS أو محاكي Android أو هاتف Android موصول ويضعها على الشريحة داخل إطار الجهاز.
-- **ذكاء اصطناعي محلي ومجاني:** `Ctrl+J` يترجم كل العناوين ويقترح عناوين جديدة بنموذج صغير يعمل على حاسوبك عبر Ollama (النموذج الافتراضي `gemma3:1b`). النماذج الصغيرة تخطئ، فراجع النتيجة.
+- **ذكاء اصطناعي محلي ومجاني:** `Ctrl+J` يترجم كل العناوين ويقترح عناوين جديدة بنموذج صغير يعمل على حاسوبك. اضغط **إعداد** مرة واحدة فينزّل التطبيق المحرك والنموذج (Gemma 3 1B، نحو 830 ميغابايت) ويشغّلهما بنفسه دون تثبيت أي شيء آخر. النماذج الصغيرة تخطئ، فراجع النتيجة.
 - **فيديو بدون Homebrew:** إن لم يكن ffmpeg مثبتاً، تعرض نافذة الفيديو تنزيله مرة واحدة.
 - **التحقق من التحديثات:** يخبرك التطبيق عند صدور إصدار أحدث على GitHub.
 
