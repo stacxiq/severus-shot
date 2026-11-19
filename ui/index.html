@@ -65,6 +65,11 @@
         <input id="iconSearch" type="text" placeholder="Search 2,000 icons" spellcheck="false">
         <div id="iconGrid" class="iconGrid" data-no-i18n></div>
         <p class="sub" id="iconNote"></p>
+        <details id="icofy" class="icofy"><summary>More icons online (Iconify, 200,000+)</summary>
+          <input id="icofySearch" type="text" placeholder="Search online, e.g. whatsapp, cart, bank" spellcheck="false">
+          <div id="icofyGrid" class="iconGrid" data-no-i18n></div>
+          <p class="sub" id="icofyNote">Needs the internet. Icons keep the licence of their own set; brand logos belong to their owners.</p>
+        </details>
       </section>
       <section id="tab-fonts" hidden>
         <input id="fontSearch" type="text" placeholder="Search fonts or type a Google Fonts name" spellcheck="false">
@@ -118,7 +123,15 @@
     </div>
     <label class="row"><span>Folder</span> <input id="exDir" type="text" spellcheck="false" dir="ltr"><button type="button" data-act="export-pick">Choose…</button></label>
     <p id="exStatus" class="status" data-no-i18n></p>
-    <div class="actions"><button value="cancel">Close</button><button type="button" class="primary" data-act="export-run">Export</button></div>
+    <details id="pubBox" class="pubBox"><summary>Publish to the stores with fastlane</summary>
+      <p class="sub">Export with the fastlane layout first. Uploading replaces the screenshots that are on the store now. Your key files stay on this computer.</p>
+      <label class="row"><span>App Store</span> <input id="pubIosId" type="text" dir="ltr" spellcheck="false" placeholder="com.example.app"><button type="button" data-act="pub-key-ios">API key…</button><button type="button" class="primary" data-act="pub-ios">Publish</button></label>
+      <div class="path" id="pubIosKey" data-no-i18n></div>
+      <label class="row"><span>Google Play</span> <input id="pubAndId" type="text" dir="ltr" spellcheck="false" placeholder="com.example.app"><button type="button" data-act="pub-key-android">JSON key…</button><button type="button" class="primary" data-act="pub-android">Publish</button></label>
+      <div class="path" id="pubAndKey" data-no-i18n></div>
+      <pre id="pubLog" class="pubLog" dir="ltr" data-no-i18n hidden></pre>
+    </details>
+    <div class="actions"><button type="button" data-act="listing" data-icon="text"><span>Store text…</span></button><button value="cancel">Close</button><button type="button" class="primary" data-act="export-run">Export</button></div>
   </form>
 </dialog>
 
@@ -128,7 +141,7 @@
     <p>Take a screenshot straight from a running iOS simulator, an Android emulator or a connected Android phone. It lands on the current slide, already framed.</p>
     <div id="capList" class="capList" data-no-i18n></div>
     <p id="capStatus" class="status" data-no-i18n></p>
-    <div class="actions"><button type="button" data-act="capture-refresh" data-icon="redo"><span>Refresh</span></button><button value="cancel" class="primary">Done</button></div>
+    <div class="actions"><button type="button" id="capStop" data-act="capture-stop" hidden>Stop the series</button><button type="button" data-act="capture-refresh" data-icon="redo"><span>Refresh</span></button><button value="cancel" class="primary">Done</button></div>
   </form>
 </dialog>
 
@@ -152,6 +165,19 @@
       <label class="row"><span>Model</span> <input id="aiModel" type="text" spellcheck="false" dir="ltr" list="aiModels" style="flex:1"><datalist id="aiModels"></datalist>
         <button type="button" data-act="ai-test">Test</button><button type="button" data-act="ai-pull" data-icon="download" title="Download this model with Ollama"><span>Download</span></button></label>
     </details>
+    <div class="actions"><button value="cancel" class="primary">Done</button></div>
+  </form>
+</dialog>
+
+<dialog id="listingDlg" class="wide">
+  <form method="dialog" class="dlg">
+    <h2>Store listing text</h2>
+    <p>The name, subtitle, description and keywords shown on your store page. They are saved with the project and written as fastlane files when you export with the fastlane layout.</p>
+    <label class="row"><span>Language</span> <select id="lsLang" data-no-i18n></select>
+      <span>Translate from</span> <select id="lsFrom" data-no-i18n></select><button type="button" data-act="listing-translate">Translate</button></label>
+    <label class="row"><span>About</span> <input id="lsAbout" type="text" style="flex:1" placeholder="What the app does, in a sentence or two"><button type="button" data-act="listing-draft" data-icon="agents"><span>Draft with AI</span></button></label>
+    <div id="lsFields" class="lsFields"></div>
+    <p id="lsStatus" class="status" data-no-i18n></p>
     <div class="actions"><button value="cancel" class="primary">Done</button></div>
   </form>
 </dialog>

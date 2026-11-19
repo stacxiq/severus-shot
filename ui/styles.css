@@ -239,3 +239,12 @@ dialog.video { width: min(1120px, 96vw); }
 .aiSetup button { margin-inline-start: auto; white-space: nowrap; }
 #aiBar { width: 100%; height: 6px; margin-top: 10px; accent-color: var(--accent, #7c6cff); }
 .aiAdv { margin-top: 14px; color: var(--muted); } .aiAdv summary { cursor: pointer; }
+.icofy { margin-top: 14px; color: var(--muted); } .icofy summary { cursor: pointer; margin-bottom: 8px; }
+.icofy .iconGrid img { width: 22px; height: 22px; }
+.capItem .two { margin-inline-start: auto; display: flex; gap: 6px; } .capItem .two button { margin: 0; }
+.pubBox { margin-top: 12px; color: var(--muted); } .pubBox summary { cursor: pointer; } .pubBox .row input { flex: 1; }
+.pubLog { max-height: 160px; overflow: auto; background: var(--s1); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-top: 10px; font-size: 11px; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
+.lsFields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-top: 14px; }
+.lsFields label { display: block; color: var(--muted); } .lsFields label.long { grid-column: 1 / -1; }
+.lsFields label span { display: flex; justify-content: space-between; margin-bottom: 4px; } .lsFields small.over { color: var(--danger); }
+.lsFields textarea { min-height: 150px; resize: vertical; }

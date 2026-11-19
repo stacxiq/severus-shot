@@ -1,0 +1,2 @@
+onnxruntime-web 1.19.2 (MIT, Microsoft): ort.wasm.min.mjs, ort-wasm-simd-threaded.mjs, ort-wasm-simd-threaded.wasm
+u2netp.onnx: U^2-Net small salient-object model (Apache-2.0, Xuebin Qin et al.), ONNX export from the rembg project.

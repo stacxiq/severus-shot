@@ -504,7 +504,7 @@ export function makeSlide(templateId = 'caption-top', themeId = 'midnight', carr
 }
 
 export function newProject(name = 'Untitled') {
-  return { app: 'severus-shot', version: 1, name, base: { ...BASE }, languages: ['en'], fonts: [], motion: makeMotion(), slides: [makeSlide()] };
+  return { app: 'severus-shot', version: 1, name, base: { ...BASE }, languages: ['en'], fonts: [], motion: makeMotion(), listing: {}, slides: [makeSlide()] };
 }
 
 // Accepts anything parsed from disk or sent by an agent and returns a safe project.
@@ -519,6 +519,7 @@ export function sanitizeProject(raw) {
     motion: makeMotion(raw.motion || {}),
     thumb: typeof raw.thumb === 'string' && raw.thumb.startsWith('data:image/jpeg;base64,') && raw.thumb.length < 90000 ? raw.thumb : '',
     fonts: Array.isArray(raw.fonts) ? raw.fonts.filter((f) => f && f.family && f.path).map((f) => ({ family: String(f.family), path: String(f.path), ...(f.weight ? { weight: String(f.weight).slice(0, 12) } : {}), ...(f.range ? { range: String(f.range).slice(0, 600) } : {}), ...(f.source ? { source: 'google' } : {}) })) : [],
+    listing: sanitizeListing(raw.listing),
     slides: raw.slides.map((s) => ({
       id: s.id || uid('s'),
       background: makeBackground(s.background || {}),
@@ -610,4 +611,42 @@ export function fastlanePath(size, lang, n, fmt = 'png') {
   if (size.store === 'ios') return ['fastlane', 'screenshots', storeLocale(lang, 'ios'), `${nn}_${size.id}.${fmt}`];
   if (size.store === 'android') return ['fastlane', 'metadata', 'android', storeLocale(lang, 'android'), 'images', ANDROID_DIRS[size.id] || 'phoneScreenshots', `${nn}.${fmt}`];
   return null;
+}
+
+// ----- store listing text (name, subtitle, description …), kept per language -----
+export const LISTING_FIELDS = [
+  { id: 'name', label: 'App name', max: 30, ios: 'name.txt', android: 'title.txt' },
+  { id: 'subtitle', label: 'Subtitle (App Store)', max: 30, ios: 'subtitle.txt' },
+  { id: 'short', label: 'Short description (Google Play)', max: 80, android: 'short_description.txt' },
+  { id: 'promo', label: 'Promotional text (App Store)', max: 170, ios: 'promotional_text.txt' },
+  { id: 'keywords', label: 'Keywords (App Store)', max: 100, ios: 'keywords.txt' },
+  { id: 'description', label: 'Description', max: 4000, ios: 'description.txt', android: 'full_description.txt', long: true },
+];
+
+export function sanitizeListing(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [lang, entry] of Object.entries(raw)) {
+    if (!entry || typeof entry !== 'object') continue;
+    const clean = {};
+    for (const f of LISTING_FIELDS) if (typeof entry[f.id] === 'string' && entry[f.id].trim()) clean[f.id] = entry[f.id].slice(0, f.max);
+    if (Object.keys(clean).length) out[String(lang).slice(0, 16)] = clean;
+  }
+  return out;
+}
+
+// Text files for the fastlane layout: [{ parts, text }] for every filled field.
+export function listingFiles(project, langs) {
+  const files = [];
+  for (const lang of langs) {
+    const entry = (project.listing || {})[lang];
+    if (!entry) continue;
+    for (const f of LISTING_FIELDS) {
+      const text = String(entry[f.id] || '').trim();
+      if (!text) continue;
+      if (f.ios) files.push({ parts: ['fastlane', 'metadata', storeLocale(lang, 'ios'), f.ios], text: `${text}\n` });
+      if (f.android) files.push({ parts: ['fastlane', 'metadata', 'android', storeLocale(lang, 'android'), f.android], text: `${text}\n` });
+    }
+  }
+  return files;
 }

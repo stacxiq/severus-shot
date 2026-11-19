@@ -48,13 +48,24 @@ jobs:
       - run: npm install
       - run: npm test
 
+      # In-app updates need signed bundles. Without the signing secret the build still works,
+      # it just produces no update files and the app falls back to opening the download page.
+      - name: Updater signing
+        shell: bash
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then echo "EXTRA_ARGS=--config src-tauri/tauri.unsigned.conf.json" >> "$GITHUB_ENV"; fi
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: Severus Shot v__VERSION__
           releaseBody: Download the installer for your system from the assets below. See the README for first-run notes.
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} ${{ env.EXTRA_ARGS }}

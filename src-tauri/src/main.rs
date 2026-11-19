@@ -67,6 +67,7 @@ fn run(job: Option<cli::ExportJob>) {
     let setup_state = state.clone();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
@@ -95,6 +96,10 @@ fn run(job: Option<cli::ExportJob>) {
             tools::ai_local_status,
             tools::ai_local_setup,
             tools::ai_local_start,
+            tools::update_install,
+            tools::app_restart,
+            tools::publish_run,
+            tools::iconify_get,
         ])
         .setup(move |app| {
             if let Ok(docs) = app.path().document_dir().or_else(|_| app.path().home_dir()) {

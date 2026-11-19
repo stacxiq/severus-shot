@@ -41,6 +41,7 @@ function summary(studio) {
     currentSlide: studio.slideIndex + 1,
     customFonts: p.fonts,
     motion: p.motion,
+    listing: p.listing,
     slides: p.slides.map((s, i) => ({
       slide: i + 1,
       id: s.id,
@@ -467,6 +468,28 @@ export function buildTools(studio) {
       description: 'Download ffmpeg into the app folder so export_video works. Only needed when list_options reports videoExportAvailable false.',
       inputSchema: obj({}),
       run: async () => { const r = await bridge.ffmpegInstall(); studio.hasFfmpeg = true; return r; },
+    },
+    {
+      name: 'remove_background',
+      description: 'Remove the background of an image element (a logo or product photo) with the on-device model, leaving it transparent. Works offline.',
+      inputSchema: obj({ id: str('Element id or name of an image element'), slide: SLIDE }, ['id']),
+      run: async ({ id, slide }) => {
+        const s = studio.resolveSlide(slide);
+        const el = s.elements.find((e) => e.id === id || e.name === id);
+        if (!el || el.type !== 'image') throw new Error(`No image element "${id}" on that slide`);
+        return { id: el.id, src: trim(await studio.cutout(el)) };
+      },
+    },
+    {
+      name: 'set_listing',
+      description: `Set store listing text for one language. It is written as fastlane metadata files by export with layout "fastlane". Fields and limits: ${M.LISTING_FIELDS.map((f) => `${f.id} (${f.max})`).join(', ')}. Pass an empty string to clear a field.`,
+      inputSchema: obj({ lang: str('Language code, e.g. en or ar'), ...Object.fromEntries(M.LISTING_FIELDS.map((f) => [f.id, str(`${f.label}, at most ${f.max} characters`)])) }, ['lang']),
+      run: async ({ lang, ...fields }) => {
+        const tooLong = M.LISTING_FIELDS.filter((f) => typeof fields[f.id] === 'string' && fields[f.id].length > f.max).map((f) => `${f.id} is ${fields[f.id].length} characters (limit ${f.max})`);
+        if (tooLong.length) throw new Error(tooLong.join('; '));
+        await studio.mutate((p) => { p.listing = M.sanitizeListing({ ...p.listing, [lang]: { ...(p.listing[lang] || {}), ...fields } }); });
+        return { lang, listing: studio.project.listing[lang] || {} };
+      },
     },
     {
       name: 'setup_local_ai',

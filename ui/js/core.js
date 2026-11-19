@@ -265,10 +265,14 @@ export class Studio {
     }
     let zipPath = null;
     if (zip) zipPath = (await bridge.zipDir(outDir, `${outDir.replace(/[\\/]+$/, '')}.zip`)).path;
+    let texts = 0;
+    if (fastlane) {
+      for (const f of M.listingFiles(this.project, langs)) { await bridge.writeText(joinPath(outDir, ...f.parts), f.text); texts += 1; }
+    }
     const warnings = this.missingAssets();
     if (skipped.size) warnings.push(`Skipped ${[...skipped].join(', ')}: the fastlane layout only holds App Store and Google Play sizes`);
-    const next = fastlane ? [`cd "${outDir}"`, 'fastlane deliver --skip_binary_upload --skip_metadata --overwrite_screenshots', 'fastlane supply --skip_upload_apk --skip_upload_aab --skip_upload_metadata --skip_upload_changelogs'] : undefined;
-    return { outDir, layout, count: files.length, files, zip: zipPath, warnings, ...(next ? { next } : {}) };
+    const next = fastlane ? [`cd "${outDir}"`, `fastlane deliver --skip_binary_upload ${texts ? '' : '--skip_metadata '}--overwrite_screenshots`, `fastlane supply --skip_upload_apk --skip_upload_aab ${texts ? '' : '--skip_upload_metadata '}--skip_upload_changelogs`] : undefined;
+    return { outDir, layout, count: files.length, files, zip: zipPath, warnings, ...(next ? { next, listingFiles: texts } : {}) };
   }
 
   async setProject(project, filePath = null) {
@@ -371,6 +375,46 @@ export class Studio {
     }
     await bridge.videoFinish(id);
     return { path, width: W, height: H, fps, seconds: Math.round(duration * 100) / 100, frames, music: music.type === 'none' ? 'none' : music.type === 'builtin' ? music.id : music.path, warnings: this.missingAssets() };
+  }
+
+  // Remove the background of an image element with the on-device model.
+  async cutout(el) {
+    if (!el || !el.src) throw new Error('Select an image first');
+    await this.loadImage(el.src);
+    const img = this.images.get(el.src);
+    if (!img) throw new Error(`The image could not be loaded: ${this.failedImages.get(el.src) || el.src}`);
+    const { removeBackground } = await import('./cutout.js');
+    const b64 = (await removeBackground(img)).toDataURL('image/png').split(',')[1];
+    let src = `data:image/png;base64,${b64}`;
+    if (bridge.isTauri && this.dataDir) {
+      src = `${this.dataDir}/Cutouts/cutout-${Date.now()}.png`;
+      await bridge.writeFileB64(src, b64);
+    }
+    await this.mutate(() => { el.src = src; });
+    return src;
+  }
+
+  // Put a captured screen on the current slide, or on a copy of it placed right after.
+  async addCaptureSlide(src, newSlide) {
+    let target;
+    await this.mutate((p) => {
+      let slide = this.slide;
+      if (newSlide) {
+        const copy = M.clone(slide);
+        copy.id = M.uid('s');
+        copy.elements.forEach((e) => { e.id = M.uid(); });
+        const at = p.slides.indexOf(slide) + 1;
+        p.slides.splice(at, 0, copy);
+        this.slideIndex = at;
+        slide = copy;
+      }
+      target = slide.elements.find((e) => e.type === 'screenshot');
+      if (target) target.src = src;
+      else { target = M.makeElement('screenshot', { src, x: M.BASE.w / 2, y: 1750, w: 900 }); slide.elements.push(target); }
+      this.selectedId = null;
+    });
+    await this.mutate(() => this.fitToImage(target), { history: false });
+    return this.slideIndex + 1;
   }
 
   // Place a new screenshot/image so its box matches the picture's proportions.

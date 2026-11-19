@@ -139,7 +139,7 @@ function drawInspector() {
       h += `<div class="grid2">${checkIn('el', 'shadow', el.shadow, 'Shadow')}${checkIn('el', 'glare', el.glare, 'Reflection')}</div>`;
     }
     if (el.type === 'image') {
-      h += `<div class="btnrow"><button data-act="el-image">Replace image…</button></div><div class="path">${esc(fileName(el.src))}</div>`;
+      h += `<div class="btnrow"><button data-act="el-image">Replace image…</button><button data-act="el-cutout">Remove background</button></div><div class="path">${esc(fileName(el.src))}</div>`;
       h += field('Corners', numIn('el', 'radius', el.radius, 2, 'min="0"'));
     }
     if (el.type === 'icon') {
@@ -490,6 +490,7 @@ const actions = {
   'bg-swap': () => studio.mutate(() => { const bg = studio.slide.background; studio.slide.background = M.makeBackground({ type: 'gradient', angle: bg.angle, colors: bg.stops.map((s) => s.color).reverse() }); }),
   'bg-all': async () => { await studio.mutate((p) => { for (const s of p.slides) s.background = M.clone(studio.slide.background); }); toast(t('Background applied to all slides')); },
   'el-image': async () => { const el = studio.selected; const [src] = await pickImages(false); if (el && src) { await studio.mutate(() => { el.src = src; }); await studio.mutate(() => studio.fitToImage(el), { history: false }); } },
+  'el-cutout': async (b) => { const el = studio.selected; if (!el) return; b.disabled = true; toast(t('Removing the background…')); try { await studio.cutout(el); toast(t('Background removed. Undo brings it back.')); } finally { b.disabled = false; } },
   'el-image-tablet': async () => { const el = studio.selected; const [src] = await pickImages(false); if (el && src) await studio.mutate(() => { el.srcTablet = src; }); },
   'el-front': () => studio.mutate(() => { const a = studio.slide.elements, el = studio.selected; a.splice(a.indexOf(el), 1); a.push(el); }),
   'el-back': () => studio.mutate(() => { const a = studio.slide.elements, el = studio.selected; a.splice(a.indexOf(el), 1); a.unshift(el); }),

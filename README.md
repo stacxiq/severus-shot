@@ -70,7 +70,16 @@ build comes from CI and has had the least testing. Please open an issue if somet
 - **Video without Homebrew.** If ffmpeg is missing, the Video window offers a one-time download (a static build from [ffmpeg-static](https://github.com/eugeneware/ffmpeg-static), GPL) into `Documents/Severus Shot/bin`.
 - **Update check.** The app tells you when a newer release is on GitHub.
 
-Agents get the same features through MCP: `list_devices`, `capture_device`, `setup_local_ai`, `translate_captions`, `install_ffmpeg`, and `layout: "fastlane"` on `export`.
+Agents get the same features through MCP: `list_devices`, `capture_device`, `setup_local_ai`, `translate_captions`, `remove_background`, `set_listing`, `install_ffmpeg`, and `layout: "fastlane"` on `export`.
+
+## New in 0.6
+
+- **Remove a background in one click.** Select a logo or product photo and press *Remove background*. A small model (U²-Net) runs on your computer, offline.
+- **Store text next to the screenshots.** *Export → Store text…* holds the app name, subtitle, description and keywords per language, with the store limits shown. The local AI can draft and translate them. They are written as fastlane metadata files.
+- **Publish from the app.** After a fastlane export, open *Publish to the stores with fastlane*, choose your own App Store Connect API key or Google Play service-account key, and press Publish. Needs [fastlane](https://fastlane.tools) installed. Your key files never leave your computer.
+- **Capture a whole flow.** In the capture window press *Series*, then move through your app: every new screen becomes a slide.
+- **200,000+ more icons.** The Icons tab can search [Iconify](https://iconify.design) online, including brand logos. Each icon keeps the licence of its own set.
+- **Updates install themselves** when the release was built with the project's signing key (maintainers: add the `TAURI_SIGNING_PRIVATE_KEY` repository secret). Otherwise the app opens the download page.
 
 ## Command line
 
@@ -208,6 +217,15 @@ irm https://raw.githubusercontent.com/stacxiq/severus-shot/main/scripts/install.
 - **ذكاء اصطناعي محلي ومجاني:** `Ctrl+J` يترجم كل العناوين ويقترح عناوين جديدة بنموذج صغير يعمل على حاسوبك. اضغط **إعداد** مرة واحدة فينزّل التطبيق المحرك والنموذج (Gemma 3 1B، نحو 830 ميغابايت) ويشغّلهما بنفسه دون تثبيت أي شيء آخر. النماذج الصغيرة تخطئ، فراجع النتيجة.
 - **فيديو بدون Homebrew:** إن لم يكن ffmpeg مثبتاً، تعرض نافذة الفيديو تنزيله مرة واحدة.
 - **التحقق من التحديثات:** يخبرك التطبيق عند صدور إصدار أحدث على GitHub.
+
+### جديد في 0.6
+
+- **إزالة الخلفية بنقرة:** حدّد شعاراً أو صورة منتج واضغط «إزالة الخلفية». يعمل نموذج صغير على حاسوبك دون إنترنت.
+- **نصوص المتجر مع اللقطات:** اسم التطبيق والعنوان الفرعي والوصف والكلمات المفتاحية لكل لغة، ويمكن للذكاء المحلي صياغتها وترجمتها.
+- **النشر من التطبيق:** بعد التصدير بتخطيط fastlane اختر ملف مفتاحك واضغط «نشر». يحتاج إلى fastlane مثبتاً.
+- **التقاط مسار كامل:** اضغط «سلسلة» وتنقّل في تطبيقك فتصبح كل شاشة جديدة شريحة.
+- **أكثر من 200,000 أيقونة إضافية** عبر Iconify من تبويب الأيقونات (يحتاج إلى الإنترنت).
+- **التحديث التلقائي** عندما يُبنى الإصدار بمفتاح توقيع المشروع.
 
 ### الحالة
 

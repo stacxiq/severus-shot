@@ -487,9 +487,189 @@ pub fn ai_stop() {
     }
 }
 
+// ---------- signed in-app update ----------
+
+/// Download and install the newest signed release. `installed: false` means there is nothing newer.
+#[tauri::command]
+pub async fn update_install(app: AppHandle) -> Result<Value, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| format!("Updates are not available in this build: {e}"))?;
+    let Some(update) = updater.check().await.map_err(|e| format!("Could not check for a signed update: {e}"))? else {
+        return Ok(json!({ "installed": false }));
+    };
+    let version = update.version.clone();
+    let progress = app.clone();
+    let mut done: u64 = 0;
+    update
+        .download_and_install(
+            move |chunk, total| {
+                done += chunk as u64;
+                let _ = progress.emit("update-progress", json!({ "done": done, "total": total.unwrap_or(0) }));
+            },
+            || {},
+        )
+        .await
+        .map_err(|e| format!("The update could not be installed: {e}"))?;
+    Ok(json!({ "installed": true, "version": version }))
+}
+
+#[tauri::command]
+pub fn app_restart(app: AppHandle) {
+    ai_stop();
+    app.restart();
+}
+
+// ---------- publish with fastlane ----------
+
+fn find_tool(name: &str) -> Option<PathBuf> {
+    let exe = if cfg!(windows) { format!("{name}.bat") } else { name.to_string() };
+    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH").map(|p| std::env::split_paths(&p).collect()).unwrap_or_default();
+    for extra in ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"] {
+        dirs.push(PathBuf::from(extra));
+    }
+    if let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from) {
+        for extra in [".rbenv/shims", ".fastlane/bin", ".gem/bin", ".local/bin", ".asdf/shims"] {
+            dirs.push(home.join(extra));
+        }
+    }
+    dirs.into_iter().map(|d| d.join(&exe)).find(|p| p.is_file())
+}
+
+fn has_text_files(dir: &Path, depth: u8) -> bool {
+    fs::read_dir(dir).map(|rd| rd.flatten().any(|e| {
+        let p = e.path();
+        if p.is_dir() {
+            depth > 0 && p.file_name().map(|n| n != "images" && n != "android").unwrap_or(false) && has_text_files(&p, depth - 1)
+        } else {
+            p.extension().map(|x| x == "txt").unwrap_or(false)
+        }
+    })).unwrap_or(false)
+}
+
+pub fn publish_args(dir: &Path, store: &str, key: &str, app_id: &str) -> Result<Vec<String>, String> {
+    let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<String>>();
+    let meta = dir.join("fastlane").join("metadata");
+    match store {
+        "ios" => {
+            if !dir.join("fastlane").join("screenshots").is_dir() {
+                return Err("This folder has no fastlane/screenshots. Export with the fastlane layout first.".into());
+            }
+            let mut a = s(&["deliver", "--force", "--skip_binary_upload", "--overwrite_screenshots", "--screenshots_path", "fastlane/screenshots", "--run_precheck_before_submit", "false", "--api_key_path", key, "--app_identifier", app_id]);
+            if has_text_files(&meta, 1) {
+                a.extend(s(&["--metadata_path", "fastlane/metadata"]));
+            } else {
+                a.push("--skip_metadata".into());
+            }
+            Ok(a)
+        }
+        "android" => {
+            let android = meta.join("android");
+            if !android.is_dir() {
+                return Err("This folder has no fastlane/metadata/android. Export Android sizes with the fastlane layout first.".into());
+            }
+            let mut a = s(&["supply", "--skip_upload_apk", "--skip_upload_aab", "--skip_upload_changelogs", "--metadata_path", "fastlane/metadata/android", "--json_key", key, "--package_name", app_id]);
+            if !has_text_files(&android, 1) {
+                a.push("--skip_upload_metadata".into());
+            }
+            Ok(a)
+        }
+        other => Err(format!("Unknown store: {other}")),
+    }
+}
+
+/// Upload an exported fastlane folder to App Store Connect ("ios") or Google Play ("android").
+/// `key` is the path of the user's own API key file; output lines are sent as "publish-log" events.
+#[tauri::command(async)]
+pub fn publish_run(app: AppHandle, dir: String, store: String, key: String, app_id: String) -> Result<Value, String> {
+    let fastlane = find_tool("fastlane").ok_or("fastlane was not found. Install it first (macOS: brew install fastlane), then try again.")?;
+    if !Path::new(&key).is_file() {
+        return Err(format!("The key file was not found: {key}"));
+    }
+    if app_id.trim().is_empty() || !app_id.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c)) {
+        return Err("Enter the app's bundle id or package name, for example com.example.app".into());
+    }
+    let root = PathBuf::from(&dir);
+    let args = publish_args(&root, &store, &key, app_id.trim())?;
+    let mut child = Command::new(fastlane)
+        .args(&args)
+        .current_dir(&root)
+        .env("LC_ALL", "en_US.UTF-8")
+        .env("LANG", "en_US.UTF-8")
+        .env("FASTLANE_SKIP_UPDATE_CHECK", "1")
+        .env("FASTLANE_DISABLE_COLORS", "1")
+        .env("CI", "1")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Could not start fastlane: {e}"))?;
+    let tail = std::sync::Arc::new(Mutex::new(Vec::<String>::new()));
+    let mut readers = Vec::new();
+    let streams: [Option<Box<dyn Read + Send>>; 2] = [child.stdout.take().map(|s| Box::new(s) as _), child.stderr.take().map(|s| Box::new(s) as _)];
+    for stream in streams.into_iter().flatten() {
+        let (app, tail) = (app.clone(), tail.clone());
+        readers.push(std::thread::spawn(move || {
+            use std::io::BufRead;
+            for line in std::io::BufReader::new(stream).lines().map_while(Result::ok) {
+                let _ = app.emit("publish-log", &line);
+                let mut t = tail.lock().unwrap();
+                t.push(line);
+                if t.len() > 40 {
+                    t.remove(0);
+                }
+            }
+        }));
+    }
+    let status = child.wait().map_err(|e| format!("fastlane failed: {e}"))?;
+    for r in readers {
+        let _ = r.join();
+    }
+    let tail = tail.lock().unwrap().join("\n");
+    if status.success() {
+        Ok(json!({ "ok": true, "store": store, "log": tail }))
+    } else {
+        Err(format!("fastlane stopped with an error ({status}).\n{tail}"))
+    }
+}
+
+// ---------- Iconify (online icon search) ----------
+
+#[tauri::command(async)]
+pub fn iconify_get(path: String) -> Result<String, String> {
+    if path.len() > 300 || path.contains("..") || path.starts_with('/') || !path.chars().all(|c| c.is_ascii_alphanumeric() || "/_.?=&%:,-".contains(c)) {
+        return Err("That icon request is not valid".into());
+    }
+    http(20)
+        .get(&format!("https://api.iconify.design/{path}"))
+        .call()
+        .map_err(|e| http_error("Could not reach the Iconify icon service (it needs the internet)", e))?
+        .into_string()
+        .map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn builds_publish_commands() {
+        let dir = std::env::temp_dir().join(format!("sev-pub-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("fastlane/screenshots/en-US")).unwrap();
+        fs::create_dir_all(dir.join("fastlane/metadata/android/en-US/images/phoneScreenshots")).unwrap();
+        let ios = publish_args(&dir, "ios", "/k.json", "com.a.b").unwrap();
+        assert_eq!(ios[0], "deliver");
+        assert!(ios.contains(&"--skip_metadata".to_string()) && ios.contains(&"--skip_binary_upload".to_string()));
+        let android = publish_args(&dir, "android", "/k.json", "com.a.b").unwrap();
+        assert!(android.contains(&"--skip_upload_metadata".to_string()) && android.contains(&"--skip_upload_aab".to_string()));
+        fs::create_dir_all(dir.join("fastlane/metadata/en-US")).unwrap();
+        fs::write(dir.join("fastlane/metadata/en-US/name.txt"), "App").unwrap();
+        fs::write(dir.join("fastlane/metadata/android/en-US/title.txt"), "App").unwrap();
+        assert!(publish_args(&dir, "ios", "/k.json", "com.a.b").unwrap().contains(&"--metadata_path".to_string()));
+        assert!(!publish_args(&dir, "android", "/k.json", "com.a.b").unwrap().contains(&"--skip_upload_metadata".to_string()));
+        assert!(publish_args(&dir.join("nope"), "ios", "/k.json", "com.a.b").is_err());
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn compares_versions() {

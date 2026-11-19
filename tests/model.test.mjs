@@ -233,3 +233,30 @@ test('the new agent tools are listed', async () => {
   for (const n of ['list_devices', 'capture_device', 'install_ffmpeg', 'setup_local_ai', 'translate_captions']) assert.ok(names.includes(n), n);
   assert.deepEqual(r.result.tools.find((x) => x.name === 'export').inputSchema.properties.layout.enum, ['folders', 'fastlane']);
 });
+
+// ----- 0.6: store listing text -----
+import { fitLimit, draftListing, translateListing } from '../ui/js/ai.js';
+
+test('listing text is sanitized, limited and written as fastlane files', async () => {
+  const p = M.sanitizeProject({ ...M.newProject('Shop'), languages: ['en', 'ar'], listing: { en: { name: 'x'.repeat(50), subtitle: 'Fast delivery', bogus: 'no', description: 'Long text' }, ar: { name: 'متجر' }, zz: 'bad' } });
+  assert.equal(p.listing.en.name.length, 30);
+  assert.equal(p.listing.en.bogus, undefined);
+  assert.equal(p.listing.zz, undefined);
+  const files = M.listingFiles(p, ['en', 'ar']).map((f) => f.parts.join('/'));
+  for (const f of ['fastlane/metadata/en-US/name.txt', 'fastlane/metadata/en-US/subtitle.txt', 'fastlane/metadata/android/en-US/title.txt', 'fastlane/metadata/android/en-US/full_description.txt', 'fastlane/metadata/ar-SA/name.txt', 'fastlane/metadata/android/ar/title.txt']) assert.ok(files.includes(f), f);
+  assert.ok(!files.some((f) => f.includes('android') && f.endsWith('subtitle.txt')));
+  assert.equal(fitLimit('one,two , three,four', 9, true), 'one,two');
+  assert.ok(fitLimit('Order food from every restaurant near you', 30).length <= 30);
+
+  const handle = createRpcHandler(new TestStudio(), {});
+  const ok = await call(handle, 'set_listing', { lang: 'en', name: 'Shop', keywords: 'food,delivery' });
+  assert.equal(ok.data.listing.name, 'Shop');
+  assert.ok((await call(handle, 'set_listing', { lang: 'en', subtitle: 'y'.repeat(31) })).isError);
+  assert.equal((await call(handle, 'get_project')).data.listing.en.keywords, 'food,delivery');
+
+  const ai = { chat: async (m) => (m[0].content.includes('translate') ? `"T:${m[1].content}"` : 'A very long generated answer that goes on and on past any short limit there is') };
+  const d = await draftListing(ai, 'food delivery', 'en', 'Shop');
+  assert.ok(d.subtitle.length <= 30 && d.short.length <= 80 && d.description.length > 0);
+  const tr = await translateListing(ai, { name: 'Shop', subtitle: 'Fast' }, 'en', 'ar', M.LISTING_FIELDS);
+  assert.deepEqual(tr, { name: 'T:Shop', subtitle: 'T:Fast' });
+});

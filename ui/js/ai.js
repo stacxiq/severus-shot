@@ -111,3 +111,52 @@ export async function translateProject(studio, ai, { from, to, overwrite = false
   }
   return { from, to, translated: done.length, captions: done.map(({ item, text }) => ({ slide: item.slide, id: item.id, from: item.text, to: text })) };
 }
+
+// ----- store listing text -----
+const LISTING_ASKS = {
+  subtitle: [30, 'a subtitle of at most 30 characters'],
+  short: [80, 'a single-sentence short description of at most 80 characters'],
+  promo: [170, 'one or two sentences of promotional text, at most 170 characters'],
+  keywords: [100, 'ten search keywords separated by commas, with no space after the commas, at most 100 characters in total'],
+  description: [4000, 'a store description: one opening sentence, then four short benefit lines each starting with "• ", then one closing sentence'],
+};
+
+// Cut text to a store limit without ending in the middle of a word (or keyword).
+export function fitLimit(text, max, keywords = false) {
+  let s = String(text || '').trim();
+  if (keywords) {
+    const kept = [];
+    for (const k of s.split(/[,،\n]+/).map((x) => x.trim()).filter(Boolean)) { if ([...kept, k].join(',').length > max) break; kept.push(k); }
+    return kept.join(',');
+  }
+  if (s.length <= max) return s;
+  s = s.slice(0, max);
+  const cut = s.lastIndexOf(' ');
+  return (cut > max * 0.6 ? s.slice(0, cut) : s).replace(/[\s,;:،-]+$/, '');
+}
+
+export async function draftListing(ai, about, lang, name = '') {
+  const out = {};
+  for (const [field, [max, ask]] of Object.entries(LISTING_ASKS)) {
+    const text = await ai.chat([
+      { role: 'system', content: `You write app store listing text in ${langName(lang)}. Write ${ask}. Be concrete and benefit-led, with no emoji and no hype words. Reply with the text only, with no quotes and no notes.` },
+      { role: 'user', content: `${name ? `App name: ${name}\n` : ''}What the app does: ${about}` },
+    ], { temperature: 0.6, maxTokens: field === 'description' ? 500 : 120 });
+    out[field] = fitLimit(cleanReply(text), max, field === 'keywords');
+  }
+  return out;
+}
+
+export async function translateListing(ai, entry, from, to, fields) {
+  const out = {};
+  for (const f of fields) {
+    const text = String((entry || {})[f.id] || '').trim();
+    if (!text) continue;
+    const reply = await ai.chat([
+      { role: 'system', content: `You translate app store listing text from ${langName(from)} to ${langName(to)}. Keep the meaning, the line breaks and any "• " bullets. Keep the app and brand names unchanged. Stay within ${f.max} characters. Reply with the translation only, with no quotes and no notes.` },
+      { role: 'user', content: text },
+    ], { maxTokens: f.long ? 700 : 150 });
+    out[f.id] = fitLimit(cleanReply(reply), f.max, f.id === 'keywords');
+  }
+  return out;
+}
