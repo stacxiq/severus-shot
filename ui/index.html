@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Severus Shot</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand" data-no-i18n>
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+      <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+      <rect x="1" y="1" width="30" height="30" rx="9" fill="url(#lg)"/>
+      <rect x="11" y="7" width="10" height="18" rx="3" fill="none" stroke="#fff" stroke-width="2"/>
+      <path d="M6 11V8.5A2.5 2.5 0 0 1 8.500 6 M26 11V8.5A2.5 2.5 0 0 0 23.500 6 M6 21v2.500A2.500 2.500 0 0 0 8.500 26 M26 21v2.500A2.500 2.500 0 0 1 23.500 26" fill="none" stroke="#fff" stroke-width="1.800" stroke-linecap="round" opacity=".9"/>
+    </svg>
+    <span>Severus Shot</span>
+  </div>
+  <div class="group">
+    <button data-act="projects" data-icon="folder" title="Projects (Ctrl+O)"><span>Projects</span></button>
+    <button data-act="save" data-icon="save" class="icon-only" title="Save project (Ctrl+S)"></button>
+  </div>
+  <div class="group">
+    <button data-act="undo" data-icon="undo" class="icon-only" title="Undo (Ctrl+Z)"></button>
+    <button data-act="redo" data-icon="redo" class="icon-only" title="Redo (Ctrl+Shift+Z)"></button>
+  </div>
+  <div class="group">
+    <button data-act="templates" data-icon="grid" title="Templates (G)"><span>Templates</span></button>
+    <button data-act="add-text" data-icon="text" title="Add text (T)"><span>Text</span></button>
+    <button data-act="add-screenshot" data-icon="phone" title="Add screenshot (S)"><span>Screenshot</span></button>
+    <button data-act="add-logo" data-icon="image" title="Add logo or image (L)"><span>Logo</span></button>
+    <button data-act="elements" data-icon="sticker" title="Stickers and shapes (E)"><span>Elements</span></button>
+  </div>
+  <div class="spacer"></div>
+  <select id="sizeSel" title="Preview size"></select>
+  <select id="langSel" title="Caption language" data-no-i18n></select>
+  <button id="uiLang" data-act="ui-lang" data-icon="globe" title="Switch interface language" data-no-i18n><span></span></button>
+  <button id="mcpBadge" class="badge" data-act="agents" data-icon="agents" title="Agent control (MCP)"><span>Agents</span></button>
+  <button data-act="video" data-icon="play" title="Motion video (Ctrl+Shift+E)"><span>Video</span></button>
+  <button class="primary" data-act="export" data-icon="export" title="Export images (Ctrl+E)"><span>Export</span></button>
+</header>
+<main>
+  <aside class="slides">
+    <div id="thumbs" data-no-i18n></div>
+    <div class="slide-actions">
+      <button data-act="slide-add" data-icon="plus" title="Add slide"><span>Slide</span></button>
+      <button data-act="slide-dup" data-icon="copy" title="Duplicate slide"><span>Copy</span></button>
+      <button data-act="slide-del" data-icon="trash" title="Delete slide"><span>Delete</span></button>
+    </div>
+  </aside>
+  <section class="stage" id="stage">
+    <div class="canvas-wrap" id="wrap" dir="ltr">
+      <canvas id="canvas"></canvas>
+      <div id="sel" hidden>
+        <i class="h" data-h="nw"></i><i class="h" data-h="ne"></i><i class="h" data-h="sw"></i><i class="h" data-h="se"></i>
+        <i class="rot" data-h="rot"></i>
+      </div>
+    </div>
+    <div class="hint" id="hint"><span>Drop screenshots anywhere · drag to move · corners resize · top dot rotates</span> <button class="link" data-act="shortcuts">Shortcuts (?)</button></div>
+  </section>
+  <aside class="inspector" id="inspector"></aside>
+</main>
+
+<dialog id="exportDlg">
+  <form method="dialog" class="dlg">
+    <h2>Export for the stores</h2>
+    <div class="cols">
+      <fieldset><legend>Sizes</legend><div id="exSizes" class="checks"></div></fieldset>
+      <fieldset><legend>Languages</legend><div id="exLangs" class="checks" data-no-i18n></div>
+        <legend class="mt">Options</legend>
+        <label class="check"><input type="checkbox" id="exOnly"> <span>Current slide only</span></label>
+        <label class="check"><input type="checkbox" id="exZip" checked> <span>Also make a ZIP</span></label>
+        <label class="check"><span>Format</span> <select id="exFmt"><option value="png">PNG (flat RGB)</option><option value="jpg">JPG</option></select></label>
+      </fieldset>
+    </div>
+    <label class="row"><span>Folder</span> <input id="exDir" type="text" spellcheck="false" dir="ltr"><button type="button" data-act="export-pick">Choose…</button></label>
+    <p id="exStatus" class="status" data-no-i18n></p>
+    <div class="actions"><button value="cancel">Close</button><button type="button" class="primary" data-act="export-run">Export</button></div>
+  </form>
+</dialog>
+
+<dialog id="agentDlg">
+  <form method="dialog" class="dlg">
+    <h2>Connect an AI agent</h2>
+    <p id="agentState" class="status" data-no-i18n></p>
+    <p>Severus Shot speaks MCP, an open standard, so any agent that supports it can edit and export your project while this window is open.</p>
+    <label class="row"><span>Agent</span> <select id="agentClient" data-no-i18n></select></label>
+    <h3 id="agentWhere" data-no-i18n></h3>
+    <pre id="agentSnippet" dir="ltr" data-no-i18n></pre>
+    <div class="actions"><button type="button" data-act="agent-copy" data-icon="copy"><span>Copy</span></button><button value="cancel" class="primary">Done</button></div>
+  </form>
+</dialog>
+
+<dialog id="templatesDlg" class="wide">
+  <form method="dialog" class="dlg">
+    <div class="dlgHead"><h2>Templates</h2><div id="tplThemes" class="swatches" data-no-i18n></div><button value="cancel" class="x" title="Close">×</button></div>
+    <p class="sub">Click a layout to use it on this slide, or press + to add it as a new slide. Your captions and screenshots are kept.</p>
+    <div id="tplGrid" class="grid"></div>
+  </form>
+</dialog>
+
+<dialog id="elementsDlg" class="wide">
+  <form method="dialog" class="dlg">
+    <div class="dlgHead"><h2>Elements</h2><button value="cancel" class="x" title="Close">×</button></div>
+    <div class="btnrow quick">
+      <button type="button" data-act="add-logo" data-icon="image"><span>Logo or image</span></button>
+      <button type="button" data-act="el-text" data-icon="text"><span>Text</span></button>
+      <button type="button" data-act="el-shot" data-icon="phone"><span>Screenshot</span></button>
+    </div>
+    <h3>Stickers and components</h3>
+    <div id="elStickers" class="tiles"></div>
+    <h3>Shapes</h3>
+    <div id="elShapes" class="tiles"></div>
+  </form>
+</dialog>
+
+<dialog id="projectsDlg" class="wide">
+  <form method="dialog" class="dlg">
+    <div class="dlgHead"><h2>Projects</h2><button value="cancel" class="x" title="Close">×</button></div>
+    <div class="row first"><input id="projName" type="text" placeholder="New project name" maxlength="80"><button type="button" class="primary" data-act="proj-new" data-icon="plus"><span>New project</span></button><button type="button" data-act="proj-open-file" data-icon="open"><span>Open file…</span></button></div>
+    <div id="projGrid" class="grid"></div>
+    <p class="sub">Projects are saved automatically in <span id="projPath" dir="ltr" data-no-i18n></span></p>
+  </form>
+</dialog>
+
+<dialog id="videoDlg" class="wide">
+  <form method="dialog" class="dlg">
+    <div class="dlgHead"><h2>Motion video</h2><button value="cancel" class="x" title="Close">×</button></div>
+    <div class="videoCols">
+      <canvas id="vidCanvas" dir="ltr"></canvas>
+      <div>
+        <div id="vidMotion">
+          <div class="f"><span>Animation</span><div class="inline"><select id="vidPreset"></select></div></div>
+          <div class="f"><span>Transition</span><div class="inline"><select id="vidTransition"></select></div></div>
+          <div class="f"><span>Seconds per slide</span><div class="inline"><input id="vidSeconds" type="number" min="1" max="15" step="0.5"></div></div>
+          <div class="f"><span>Frame rate</span><div class="inline"><select id="vidFps" data-no-i18n><option>24</option><option>30</option><option>60</option></select></div></div>
+        </div>
+        <div class="f"><span>Size</span><div class="inline"><select id="vidSize" data-no-i18n></select></div></div>
+        <div class="f"><span>Language</span><div class="inline"><select id="vidLang" data-no-i18n></select></div></div>
+        <p id="vidStatus" class="status" data-no-i18n></p>
+        <div class="actions"><button type="button" data-act="video-cancel" hidden>Cancel</button><button type="button" class="primary" data-act="video-run" data-icon="export"><span>Export MP4</span></button></div>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="shortcutsDlg">
+  <form method="dialog" class="dlg">
+    <div class="dlgHead"><h2>Keyboard shortcuts</h2><button value="cancel" class="x" title="Close">×</button></div>
+    <table class="keys">
+      <tr><td><kbd>Ctrl</kbd> <kbd>N</kbd></td><td>New project</td></tr>
+      <tr><td><kbd>Ctrl</kbd> <kbd>O</kbd></td><td>Open the project list</td></tr>
+      <tr><td><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next project</td></tr>
+      <tr><td><kbd>Ctrl</kbd> <kbd>S</kbd></td><td>Save</td></tr>
+      <tr><td><kbd>Ctrl</kbd> <kbd>E</kbd></td><td>Export images</td></tr>
+      <tr><td><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>E</kbd></td><td>Motion video</td></tr>
+      <tr><td><kbd>G</kbd></td><td>Template gallery</td></tr>
+      <tr><td><kbd>E</kbd></td><td>Stickers and shapes</td></tr>
+      <tr><td><kbd>T</kbd> <kbd>S</kbd> <kbd>L</kbd></td><td>Add text / screenshot / logo</td></tr>
+      <tr><td><kbd>Ctrl</kbd> <kbd>Enter</kbd></td><td>New slide</td></tr>
+      <tr><td><kbd>PageUp</kbd> <kbd>PageDown</kbd></td><td>Previous / next slide</td></tr>
+      <tr><td><kbd>Ctrl</kbd> <kbd>Z</kbd> · <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd></td><td>Undo / redo</td></tr>
+      <tr><td><kbd>Ctrl</kbd> <kbd>C</kbd> <kbd>V</kbd> <kbd>D</kbd></td><td>Copy, paste, duplicate</td></tr>
+      <tr><td><kbd>]</kbd> <kbd>[</kbd></td><td>Bring to front / send to back</td></tr>
+      <tr><td><kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd></td><td>Nudge (hold Shift for bigger steps)</td></tr>
+      <tr><td><kbd>Delete</kbd></td><td>Delete the selected element</td></tr>
+      <tr><td><kbd>?</kbd></td><td>Show this list</td></tr>
+    </table>
+    <p class="sub">On a Mac, use ⌘ in place of Ctrl.</p>
+  </form>
+</dialog>
+
+<input type="file" id="filePick" hidden>
+<div id="toast" hidden></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
