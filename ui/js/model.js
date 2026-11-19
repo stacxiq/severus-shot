@@ -58,7 +58,71 @@ export const STICKER_DEFAULTS = {
   highlight: { w: 620, h: 120, text: '' },
   confetti: { w: 700, h: 500, text: '' },
 };
-export const MOTIONS = { rise: 'Rise and fade in', fade: 'Fade in', pop: 'Pop in', slide: 'Slide in from the side', device: 'Device slides up', drop: 'Drop and bounce', zoom: 'Zoom out into place', swing: 'Swing in', none: 'No animation' };
+// Motion templates. Each row: id, label, category, entrance for every element, per-type overrides,
+// and the defaults it sets (transition t, idle float, camera move). Entrance values are where an
+// element starts from: dx/dy offset, scale, sx (horizontal squash), rot degrees; ease names the curve.
+export const MOTION_TABLE = [
+  ['none', 'No animation', 'essentials', null, null, { t: 'cut' }],
+  ['fade', 'Fade in', 'essentials', {}, null, {}],
+  ['rise', 'Rise and fade in', 'essentials', { dy: 140 }, null, {}],
+  ['fall', 'Settle from above', 'essentials', { dy: -140 }, null, {}],
+  ['pop', 'Pop in', 'essentials', { scale: 0.82 }, null, {}],
+  ['soft-zoom', 'Soft zoom', 'essentials', { scale: 1.12, dur: 0.9 }, null, {}],
+  ['slide', 'Slide in from the side', 'slide', { dx: 340 }, null, { t: 'push' }],
+  ['slide-back', 'Slide in from the other side', 'slide', { dx: -340 }, null, { t: 'push' }],
+  ['slide-up', 'Long slide up', 'slide', { dy: 420, ease: 'expo', dur: 0.9 }, null, { t: 'up' }],
+  ['slide-down', 'Long slide down', 'slide', { dy: -420, ease: 'expo', dur: 0.9 }, null, {}],
+  ['alternate', 'Text and device from opposite sides', 'slide', { dx: -300 }, { screenshot: { dx: 320 } }, {}],
+  ['curtain', 'Text from top, device from bottom', 'slide', { dy: -260 }, { screenshot: { dy: 700 } }, {}],
+  ['wave', 'Top-to-bottom wave', 'slide', { dy: 200, stag: 0.2, order: 'top' }, null, {}],
+  ['cascade', 'Bottom-up cascade', 'slide', { dy: 240, stag: 0.16, order: 'bottom' }, null, { t: 'up' }],
+  ['zoom', 'Zoom out into place', 'zoom', { scale: 1.35 }, null, { t: 'zoom' }],
+  ['zoom-in', 'Zoom in with overshoot', 'zoom', { scale: 0.5, ease: 'back' }, null, { t: 'zoom' }],
+  ['burst', 'Burst from the centre', 'zoom', { scale: 0.2, ease: 'back', stag: 0.08, order: 'center' }, null, {}],
+  ['implode', 'Fall into place', 'zoom', { scale: 1.8, order: 'center' }, null, {}],
+  ['grow-device', 'Device grows in', 'zoom', {}, { screenshot: { scale: 0.6, ease: 'back', dur: 0.9 } }, {}],
+  ['title-punch', 'Title punches in', 'zoom', { dy: 80 }, { text: { scale: 1.45, dur: 0.6 } }, {}],
+  ['drop', 'Drop and bounce', 'bounce', { dy: -520, ease: 'bounce', dur: 0.95 }, null, {}],
+  ['bounce-up', 'Bounce up', 'bounce', { dy: 420, ease: 'bounce', dur: 0.95 }, null, {}],
+  ['elastic-pop', 'Elastic pop', 'bounce', { scale: 0.4, ease: 'elastic', dur: 1.1 }, null, {}],
+  ['elastic-slide', 'Elastic slide', 'bounce', { dx: 380, ease: 'elastic', dur: 1.1 }, null, {}],
+  ['spring', 'Spring rise', 'bounce', { dy: 200, ease: 'back', dur: 0.8 }, null, {}],
+  ['jelly', 'Jelly', 'bounce', { sx: 0.5, scale: 0.9, ease: 'elastic', dur: 1.1 }, null, {}],
+  ['swing', 'Swing in', 'spin', { rot: 14, dy: 60, alt: true }, null, {}],
+  ['spin', 'Spin in', 'spin', { rot: -120, scale: 0.5, ease: 'back', dur: 0.9 }, null, {}],
+  ['twist', 'Twist', 'spin', { rot: 25, scale: 0.85 }, null, {}],
+  ['flip', 'Flip in', 'spin', { sx: 0, ease: 'back', dur: 0.8 }, null, {}],
+  ['pendulum', 'Pendulum', 'spin', { rot: -30, ease: 'elastic', dur: 1.2 }, null, {}],
+  ['roll', 'Roll in', 'spin', { dx: -360, rot: -90, dur: 0.9 }, null, {}],
+  ['device', 'Device slides up', 'device', {}, { screenshot: { dy: 900, fade: 3 } }, {}],
+  ['device-drop', 'Device drops in', 'device', {}, { screenshot: { dy: -900, ease: 'bounce', dur: 1, fade: 4 } }, {}],
+  ['device-tilt', 'Device tilts up', 'device', { dy: 60 }, { screenshot: { rot: 18, dy: 520, dur: 0.9 } }, {}],
+  ['device-zoom', 'Device zooms out', 'device', {}, { screenshot: { scale: 1.6, dur: 0.9 } }, {}],
+  ['device-side', 'Device from the side', 'device', { dx: -120 }, { screenshot: { dx: 720, dur: 0.9 } }, { t: 'push' }],
+  ['device-spin', 'Device spins in', 'device', {}, { screenshot: { rot: -40, scale: 0.6, ease: 'back', dur: 1 } }, {}],
+  ['cine-zoom', 'Cinematic push-in', 'cinematic', { dur: 1 }, null, { cam: 'zoom-in' }],
+  ['cine-pull', 'Cinematic pull-back', 'cinematic', { dur: 1 }, null, { cam: 'zoom-out' }],
+  ['pan-side', 'Sideways pan', 'cinematic', { dy: 100 }, null, { cam: 'pan-left', t: 'push' }],
+  ['pan-up', 'Upward pan', 'cinematic', {}, null, { cam: 'pan-up', t: 'up' }],
+  ['reveal', 'Slow reveal', 'cinematic', { dy: 60, dur: 1.4, stag: 0.3 }, null, { cam: 'zoom-in' }],
+  ['documentary', 'Documentary', 'cinematic', { dur: 1.2 }, null, { cam: 'pan-left' }],
+  ['party', 'Party pop', 'playful', { scale: 0.2, ease: 'elastic', dur: 1.1, stag: 0.09, order: 'center' }, null, { float: true }],
+  ['wobble', 'Wobble', 'playful', { rot: 10, ease: 'elastic', dur: 1.2, alt: true }, null, { float: true }],
+  ['hop', 'Hop', 'playful', { dy: 160, ease: 'bounce', stag: 0.18 }, null, { float: true }],
+  ['floaty', 'Floaty', 'playful', { dy: 40, dur: 1 }, null, { float: true }],
+  ['tumble', 'Tumble', 'playful', { dy: -400, rot: 60, ease: 'bounce', dur: 1 }, null, {}],
+  ['zigzag', 'Zigzag', 'playful', { dx: 320, alt: true, order: 'top' }, null, {}],
+];
+export const MOTIONS = Object.fromEntries(MOTION_TABLE.map((r) => [r[0], r[1]]));
+export const MOTION_CATS = { essentials: 'Essentials', slide: 'Slides', zoom: 'Zoom', bounce: 'Bounce', spin: 'Spin', device: 'Device', cinematic: 'Cinematic', playful: 'Playful' };
+export const CAMERAS = { none: 'Still camera', 'zoom-in': 'Slow push-in', 'zoom-out': 'Slow pull-back', 'pan-left': 'Sideways drift', 'pan-up': 'Upward drift' };
+// Choosing a template also applies the transition, float and camera it was designed with.
+export function applyMotionTemplate(motion, id) {
+  const row = MOTION_TABLE.find((r) => r[0] === id);
+  if (!row) throw new Error(`Unknown motion template "${id}". Options: ${Object.keys(MOTIONS).join(', ')}`);
+  const d = row[5] || {};
+  return makeMotion({ ...motion, preset: id, transition: d.t || 'fade', float: !!d.float, camera: d.cam || 'none' });
+}
 export const TRANSITIONS = { fade: 'Cross-fade', push: 'Push', up: 'Slide up', zoom: 'Zoom through', wipe: 'Wipe', cut: 'Cut' };
 export const VIDEO_SIZES = [
   { id: 'video-1080', label: 'Portrait 1080×1920', w: 1080, h: 1920, device: 'phone' },
@@ -82,6 +146,7 @@ export function makeMotion(m = {}) {
     seconds: n(m.seconds, 3, 1, 15),
     fps: [24, 30, 60].includes(+m.fps) ? +m.fps : 30,
     float: !!m.float, // elements keep drifting gently after they arrive
+    camera: CAMERAS[m.camera] ? m.camera : 'none', // slow move of the whole frame during each slide
     music: makeMusic(m.music),
   };
 }

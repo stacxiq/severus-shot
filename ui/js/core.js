@@ -203,12 +203,12 @@ export class Studio {
     return img ? { w: img.naturalWidth, h: img.naturalHeight } : null;
   }
 
-  render(canvas, slide, { W, H, lang, device, final = false, placeholder, anim }) {
+  render(canvas, slide, { W, H, lang, device, final = false, placeholder, anim, camera }) {
     if (canvas.width !== W) canvas.width = W;
     if (canvas.height !== H) canvas.height = H;
     const ctx = canvas.getContext('2d');
     return renderSlide(ctx, this.project, slide, {
-      W, H, lang: lang || this.lang, device, final, placeholder, anim,
+      W, H, lang: lang || this.lang, device, final, placeholder, anim, camera,
       getImage: (src) => this.images.get(src) || null,
       getIcon: (name) => this.icons.get(name) || null,
       createCanvas: (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h }),
@@ -335,7 +335,7 @@ export class Studio {
     if (!path) throw new Error('path is required (an .mp4 file)');
     if (!this.hasFfmpeg) throw new Error('Video export needs ffmpeg. Install it (macOS: brew install ffmpeg · Windows: winget install ffmpeg · Linux: apt install ffmpeg) and restart Severus Shot.');
     await this.ensureAssets();
-    const z = M.VIDEO_SIZES.find((v) => v.id === size) || M.resolveSize(size || 'video-1080');
+    const z = M.VIDEO_SIZES.find((v) => v.id === (size || 'video-1080')) || M.resolveSize(size);
     const W = z.w - (z.w % 2), H = z.h - (z.h % 2);
     const { fps } = this.project.motion;
     const duration = videoDuration(this.project), frames = Math.max(1, Math.round(duration * fps));

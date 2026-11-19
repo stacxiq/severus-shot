@@ -87,7 +87,8 @@ export function buildTools(studio) {
         frames: M.FRAME_LABELS,
         shapes: M.SHAPE_LABELS,
         stickers: M.STICKER_LABELS,
-        motionPresets: M.MOTIONS,
+        motionTemplates: Object.fromEntries(Object.keys(M.MOTION_CATS).map((c) => [c, Object.fromEntries(M.MOTION_TABLE.filter((r) => r[2] === c).map((r) => [r[0], r[1]]))])),
+        cameras: M.CAMERAS,
         musicTracks: M.MUSIC_TRACKS,
         googleFonts: M.GOOGLE_FONTS,
         iconCount: studio.iconList.length,
@@ -139,15 +140,16 @@ export function buildTools(studio) {
     },
     {
       name: 'set_motion',
-      description: 'Set how the slides animate in the video: entrance preset, transition between slides, seconds per slide and frame rate.',
-      inputSchema: obj({ preset: str('Entrance animation', { enum: Object.keys(M.MOTIONS) }), transition: str('Between slides', { enum: Object.keys(M.TRANSITIONS) }), seconds: numb('Seconds each slide stays (1 to 15)'), fps: numb('24, 30 or 60'), float: bool('Keep elements drifting gently after they arrive'), music: str(`Background music: none, a built-in track (${Object.keys(M.MUSIC_TRACKS).join(', ')}) or an absolute path to an audio file`), musicVolume: numb('Music volume 0 to 1') }),
+      description: 'Set how the slides animate in the video: motion template, transition between slides, camera move, seconds per slide, frame rate and music.',
+      inputSchema: obj({ preset: str('Motion template id (50 available, see list_options motionTemplates). Choosing one also applies its designed transition, float and camera unless you pass them', { enum: Object.keys(M.MOTIONS) }), camera: str('Slow move of the whole frame', { enum: Object.keys(M.CAMERAS) }), transition: str('Between slides', { enum: Object.keys(M.TRANSITIONS) }), seconds: numb('Seconds each slide stays (1 to 15)'), fps: numb('24, 30 or 60'), float: bool('Keep elements drifting gently after they arrive'), music: str(`Background music: none, a built-in track (${Object.keys(M.MUSIC_TRACKS).join(', ')}) or an absolute path to an audio file`), musicVolume: numb('Music volume 0 to 1') }),
       run: async ({ music, musicVolume, ...a }) => {
         await studio.mutate((p) => {
           const cur = p.motion.music;
           let next = cur;
           if (music !== undefined) next = music === 'none' || music === '' ? { type: 'none' } : M.MUSIC_TRACKS[music] ? { type: 'builtin', id: music, volume: cur.volume } : { type: 'file', path: String(music), volume: cur.volume };
           if (musicVolume !== undefined) next = { ...next, volume: musicVolume };
-          p.motion = M.makeMotion({ ...p.motion, ...a, music: next });
+          const base = a.preset ? M.applyMotionTemplate(p.motion, a.preset) : p.motion;
+          p.motion = M.makeMotion({ ...base, ...a, music: next });
         });
         return { motion: studio.project.motion };
       },

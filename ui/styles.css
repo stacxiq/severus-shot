@@ -194,3 +194,34 @@ html[dir=rtl] [data-icon=undo] .ic, html[dir=rtl] [data-icon=redo] .ic { transfo
 /* Fixed grid slots, so hiding the library never shifts the other panels. */
 .rail { grid-column: 1; } .library { grid-column: 2; } .center { grid-column: 3; } .inspector { grid-column: 4; }
 main { grid-template-rows: minmax(0, 1fr); }
+
+/* Motion video studio */
+dialog.video { width: min(1120px, 96vw); }
+.videoCols { grid-template-columns: 300px minmax(0, 1fr); gap: 26px; }
+.vidStage { background: radial-gradient(circle at 50% 30%, #1a1d26, #08090c); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; place-items: center; }
+#vidCanvas { width: auto; max-width: 100%; height: 440px; border-radius: 12px; }
+.vidTransport { display: flex; align-items: center; gap: 8px; margin: 10px 0 12px; }
+.vidTransport input { flex: 1; }
+#vidTime { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11.5px; min-width: 78px; text-align: end; direction: ltr; }
+.vidLeft .f { grid-template-columns: 84px 1fr; }
+.vidRight h3 { margin-top: 14px; } .vidRight h3:first-child { margin-top: 0; }
+.pillNote { color: var(--muted); background: var(--s3); border: 1px solid var(--line); border-radius: 20px; padding: 2px 10px; font-size: 11.5px; }
+.chipRow { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chipRow button { border-radius: 20px; padding: 4px 11px; background: transparent; color: var(--muted); }
+.chipRow button.on { background: var(--accent-soft); border-color: transparent; color: #d5d0ff; }
+.motionGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; max-height: 232px; overflow-y: auto; padding: 2px; }
+.mcard { display: flex; align-items: center; gap: 9px; text-align: start; justify-content: flex-start; padding: 8px 10px; background: var(--s1); white-space: normal; line-height: 1.25; min-height: 46px; }
+.mcard i { width: 26px; height: 26px; flex: none; border-radius: 8px; background: var(--s4); display: grid; place-items: center; color: var(--muted); }
+.mcard i .ic { width: 14px; height: 14px; }
+.mcard:hover { border-color: var(--accent); }
+.mcard.on { background: var(--accent-soft); border-color: var(--accent); }
+.mcard.on i { background: var(--accent); color: #fff; }
+.timing { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.timing label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 11.5px; }
+.timing .check { flex-direction: row; align-items: center; font-size: 12.5px; } .timing .wide2 { grid-column: span 2; }
+.trackRow { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; margin-bottom: 8px; }
+.track { display: flex; align-items: center; gap: 8px; justify-content: flex-start; padding: 8px 10px; background: var(--s1); }
+.track.on { background: var(--accent-soft); border-color: var(--accent); }
+.track .ic { width: 14px; height: 14px; color: var(--muted); }
+.trackRow { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+.track span { overflow: hidden; text-overflow: ellipsis; }

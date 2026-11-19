@@ -140,62 +140,98 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
   }
 
   /* ---------- video ---------- */
-  let playing = 0, cancelled = false;
+  let playing = 0, cancelled = false, vt = 0, vPlaying = true, vLast = 0, vCat = 'essentials', vHover = null;
   const opts = (map, sel) => Object.entries(map).map(([k, v]) => `<option value="${esc(k)}"${k === sel ? ' selected' : ''}>${esc(v)}</option>`).join('');
+  const CAT_ICON = { essentials: 'star', slide: 'export', zoom: 'search', bounce: 'download', spin: 'redo', device: 'phone', cinematic: 'play', playful: 'sticker' };
+  const previewMotion = () => (vHover ? M.applyMotionTemplate(studio.project.motion, vHover) : studio.project.motion);
   function drawVideo() {
     const m = studio.project.motion;
     $('#vidPreset').innerHTML = opts(M.MOTIONS, m.preset);
     $('#vidTransition').innerHTML = opts(M.TRANSITIONS, m.transition);
+    $('#vidCamera').innerHTML = opts(M.CAMERAS, m.camera);
     $('#vidSeconds').value = m.seconds;
     $('#vidFps').value = String(m.fps);
     $('#vidFloat').checked = m.float;
+    $('#vidCats').innerHTML = Object.entries(M.MOTION_CATS).map(([k, v]) => `<button type="button" data-cat="${k}" class="${k === vCat ? 'on' : ''}">${esc(v)} <small>${M.MOTION_TABLE.filter((r) => r[2] === k).length}</small></button>`).join('');
+    $('#vidGrid').innerHTML = M.MOTION_TABLE.filter((r) => r[2] === vCat).map((r) => `<button type="button" class="mcard ${r[0] === m.preset ? 'on' : ''}" data-motion="${r[0]}"><i>${icon(CAT_ICON[r[2]])}</i><span>${esc(r[1])}</span></button>`).join('');
     const mv = m.music.type === 'builtin' ? `b:${m.music.id}` : m.music.type;
-    $('#vidMusic').innerHTML = [['none', t('No music')], ...Object.entries(M.MUSIC_TRACKS).map(([k, v]) => [`b:${k}`, t(v)]), ['file', t('My own audio file…')]].map(([k, v]) => `<option value="${k}"${k === mv ? ' selected' : ''}>${esc(v)}</option>`).join('');
-    $('#vidFileRow').hidden = $('#vidMusic').value !== 'file';
+    const tracks = [['none', t('No music')], ...Object.entries(M.MUSIC_TRACKS).map(([k, v]) => [`b:${k}`, t(v)]), ['file', t('My own audio file…')]];
+    $('#vidMusic').innerHTML = tracks.map(([k, v]) => `<option value="${k}"${k === mv ? ' selected' : ''}>${esc(v)}</option>`).join('');
+    $('#vidTracks').innerHTML = tracks.map(([k, v]) => `<button type="button" class="track ${k === mv ? 'on' : ''}" data-track="${k}" data-no-i18n>${icon(k === 'none' ? 'pause' : k === 'file' ? 'open' : 'music')}<span>${esc(v)}</span></button>`).join('');
+    $('#vidFileRow').hidden = mv !== 'file';
     $('#vidVolRow').hidden = m.music.type === 'none';
     $('#vidVolume').value = m.music.volume;
     $('#vidFile').textContent = m.music.path || t('none');
     if (!$('#vidSize').options.length) $('#vidSize').innerHTML = M.VIDEO_SIZES.map((z) => `<option value="${z.id}">${esc(z.label)}</option>`).join('');
-    $('#vidLang').innerHTML = studio.project.languages.map((l) => `<option${l === studio.lang ? ' selected' : ''}>${esc(l)}</option>`).join('');
-    $('#vidStatus').textContent = studio.hasFfmpeg ? `${t('Length')}: ${videoDuration(studio.project).toFixed(1)} s` : t('Video export needs ffmpeg installed (macOS: brew install ffmpeg). The preview works without it.');
+    const langNow = $('#vidLang').value || studio.lang;
+    $('#vidLang').innerHTML = studio.project.languages.map((l) => `<option${l === langNow ? ' selected' : ''}>${esc(l)}</option>`).join('');
+    $('#vidSummary').textContent = `${studio.project.slides.length} × ${m.seconds}s · ${videoDuration(studio.project).toFixed(1)}s · ${m.fps} fps`;
+    if (!$('#vidStatus').dataset.busy) $('#vidStatus').textContent = studio.hasFfmpeg ? '' : t('Video export needs ffmpeg installed (macOS: brew install ffmpeg). The preview works without it.');
     localize($('#videoDlg'));
   }
+  // Live preview with a scrubber. Hovering a template previews it before you commit to it.
   function play() {
     cancelAnimationFrame(playing);
     const z = M.VIDEO_SIZES.find((v) => v.id === $('#vidSize').value) || M.VIDEO_SIZES[0];
     const canvas = $('#vidCanvas');
-    const H = 720, W = Math.round((H * z.w) / z.h);
+    const H = 880, W = Math.round((H * z.w) / z.h);
     const mk = () => Object.assign(document.createElement('canvas'), { width: W, height: H });
     const scratch = { a: mk(), b: mk() };
-    const total = videoDuration(studio.project) + 0.8, start = performance.now();
+    vLast = 0;
     const tick = (now) => {
       if (!$('#videoDlg').open) return;
-      const time = Math.max(0, Math.min(((now - start) / 1000) % total, total - 0.8));
-      renderVideoFrame(studio, canvas, time, { W, H, device: z.device, lang: $('#vidLang').value }, scratch);
+      const motion = previewMotion();
+      const total = videoDuration(studio.project, motion);
+      if (vPlaying && vLast) vt += (now - vLast) / 1000;
+      vLast = now;
+      if (vt > total + 0.7) vt = 0;
+      const time = Math.max(0, Math.min(vt, total));
+      renderVideoFrame(studio, canvas, time, { W, H, device: z.device, lang: $('#vidLang').value, motion }, scratch);
+      if (document.activeElement !== $('#vidScrub')) $('#vidScrub').value = Math.round((time / total) * 1000);
+      $('#vidTime').textContent = `${time.toFixed(1)} / ${total.toFixed(1)} s`;
       playing = requestAnimationFrame(tick);
     };
     playing = requestAnimationFrame(tick);
   }
+  function setPlaying(on) {
+    vPlaying = on;
+    const b = $('#vidToggle');
+    b.dataset.icon = on ? 'pause' : 'play';
+    b.innerHTML = icon(b.dataset.icon);
+  }
+  $('#vidScrub').addEventListener('input', (e) => { setPlaying(false); vt = (e.target.value / 1000) * videoDuration(studio.project, previewMotion()); });
+  $('#vidGrid').addEventListener('pointerover', (e) => { const c = e.target.closest('[data-motion]'); if (c && vHover !== c.dataset.motion) { vHover = c.dataset.motion; vt = 0; setPlaying(true); } });
+  $('#vidGrid').addEventListener('pointerleave', () => { if (vHover) { vHover = null; vt = 0; } });
+  $('#videoDlg').addEventListener('click', guard(async (e) => {
+    const cat = e.target.closest('[data-cat]'), card = e.target.closest('[data-motion]'), track = e.target.closest('[data-track]');
+    if (cat) { vCat = cat.dataset.cat; drawVideo(); }
+    else if (card) {
+      vHover = null;
+      await studio.mutate((p) => { p.motion = M.applyMotionTemplate(p.motion, card.dataset.motion); });
+      vt = 0; setPlaying(true); drawVideo();
+    } else if (track) { $('#vidMusic').value = track.dataset.track; $('#vidMusic').dispatchEvent(new Event('change', { bubbles: true })); }
+  }));
   $('#videoDlg').addEventListener('change', guard(async (e) => {
-    if (!e.target.closest('#vidMotion')) { play(); return; }
+    if (e.target.id === 'vidScrub') return;
+    if (!e.target.closest('#vidMotion') && e.target.id !== 'vidVolume') { play(); return; }
     const pick = $('#vidMusic').value, old = studio.project.motion.music;
     const music = pick === 'none' ? { type: 'none' } : pick === 'file' ? { type: 'file', path: old.path, volume: $('#vidVolume').value } : { type: 'builtin', id: pick.slice(2), volume: $('#vidVolume').value };
-    if (pick === 'file' && !old.path) { $('#vidFileRow').hidden = false; $('#vidVolRow').hidden = true; return; }
+    if (pick === 'file' && !old.path) { $('#vidFileRow').hidden = false; $('#vidVolRow').hidden = true; for (const b of document.querySelectorAll('.track')) b.classList.toggle('on', b.dataset.track === 'file'); return; }
     stopMusic();
-    await studio.mutate((p) => { p.motion = M.makeMotion({ preset: $('#vidPreset').value, transition: $('#vidTransition').value, seconds: $('#vidSeconds').value, fps: $('#vidFps').value, float: $('#vidFloat').checked, music }); });
-    drawVideo(); play();
+    await studio.mutate((p) => { p.motion = M.makeMotion({ ...p.motion, transition: $('#vidTransition').value, camera: $('#vidCamera').value, seconds: $('#vidSeconds').value, fps: $('#vidFps').value, float: $('#vidFloat').checked, music }); });
+    drawVideo();
   }));
   async function exportVideo() {
     const path = await bridge.pickSave(`${(studio.project.name || 'preview').replace(/[^\p{L}\p{N}._-]+/gu, '-')}.mp4`, VIDEO_FILTERS);
     if (!path) return;
     const status = $('#vidStatus'), btn = $('[data-act=video-run]');
-    cancelled = false; btn.disabled = true; $('[data-act=video-cancel]').hidden = false;
+    cancelled = false; btn.disabled = true; $('[data-act=video-cancel]').hidden = false; status.dataset.busy = '1';
+    setPlaying(false); stopMusic();
     try {
-      const r = await studio.exportVideo({ path, size: $('#vidSize').value, lang: $('#vidLang').value, isCancelled: () => cancelled, onProgress: (n, total) => { status.textContent = t('Rendering frame {0} of {1}…', n, total); } });
+      const r = await studio.exportVideo({ path, size: $('#vidSize').value, lang: $('#vidLang').value, isCancelled: () => cancelled, onProgress: (n, total) => { status.textContent = `${t('Rendering frame {0} of {1}…', n, total)}  ${Math.round((n / total) * 100)}%`; } });
       status.textContent = r.cancelled ? t('Cancelled') : `${t('Saved')}: ${r.path} (${r.width}×${r.height}, ${r.seconds} s)`;
     } finally { btn.disabled = false; $('[data-act=video-cancel]').hidden = true; }
   }
-
 
   /* ---------- docked library (templates, elements, icons, fonts) ---------- */
   const TAB_TITLES = { templates: 'Templates', elements: 'Elements', icons: 'Icons', fonts: 'Fonts' };
@@ -380,7 +416,8 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
       },
       'proj-next': () => stepProject(1),
       'proj-prev': () => stepProject(-1),
-      video: () => { drawVideo(); show('#videoDlg'); play(); },
+      video: () => { delete $('#vidStatus').dataset.busy; vt = 0; vHover = null; const cur = M.MOTION_TABLE.find((r) => r[0] === studio.project.motion.preset); if (cur) vCat = cur[2]; drawVideo(); show('#videoDlg'); setPlaying(true); play(); },
+      'video-toggle': () => setPlaying(!vPlaying),
       'video-run': exportVideo,
       'video-cancel': () => { cancelled = true; },
       'video-listen': listen,

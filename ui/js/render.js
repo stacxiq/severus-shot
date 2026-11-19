@@ -889,6 +889,12 @@ export function renderSlide(ctx, project, slide, options) {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, env.W, env.H);
+  if (opts.camera) {
+    // Whole-frame camera move for video: scale about the centre, with a small drift.
+    ctx.translate(env.W / 2 + opts.camera.ox * env.W, env.H / 2 + opts.camera.oy * env.H);
+    ctx.scale(opts.camera.k, opts.camera.k);
+    ctx.translate(-env.W / 2, -env.H / 2);
+  }
   drawBackground(ctx, slide.background, env, opts);
   const boxes = [];
   slide.elements.forEach((el, index) => {
@@ -898,7 +904,7 @@ export function renderSlide(ctx, project, slide, options) {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(((el.rotation + (m && m.rot ? m.rot : 0)) * Math.PI) / 180);
-    if (m && m.scale !== 1) ctx.scale(m.scale, m.scale);
+    if (m && (m.scale !== 1 || (m.sx !== undefined && m.sx !== 1))) ctx.scale(m.scale * (m.sx === undefined ? 1 : m.sx), m.scale);
     ctx.globalAlpha = el.opacity * (m ? m.alpha : 1);
     let box;
     if (el.type === 'text') box = drawText(ctx, el, env, opts);

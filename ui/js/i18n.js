@@ -107,6 +107,18 @@ const AR = {
   'Button': 'زر', 'Callout': 'تنبيه توضيحي', 'Ribbon': 'شريط', 'Price tag': 'بطاقة سعر', 'Stat card': 'بطاقة رقم', 'Chart card': 'بطاقة مخطط', 'Progress ring': 'حلقة تقدّم',
   'User avatars': 'صور المستخدمين', 'Toggle switch': 'مفتاح تبديل', 'Quote marks': 'علامتا اقتباس', 'Highlighter': 'قلم تظليل', 'Confetti': 'قصاصات احتفال',
   'Concentric rings': 'حلقات متداخلة', 'Half circle': 'نصف دائرة', 'Diamond': 'معيّن', 'Hexagon': 'سداسي', 'Heart': 'قلب', 'Plus': 'علامة زائد', 'Stripes': 'خطوط مائلة', 'Wave': 'موجة',
+  // motion templates (0.4)
+  'Motion template': 'قالب الحركة', 'Timing': 'التوقيت', 'Camera': 'الكاميرا', 'Play / pause': 'تشغيل / إيقاف', 'Timeline': 'الخط الزمني',
+  'Essentials': 'أساسية', 'Slides': 'انزلاق', 'Zoom': 'تكبير', 'Bounce': 'ارتداد', 'Spin': 'دوران', 'Cinematic': 'سينمائية', 'Playful': 'مرِحة',
+  'Still camera': 'كاميرا ثابتة', 'Slow push-in': 'اقتراب بطيء', 'Slow pull-back': 'ابتعاد بطيء', 'Sideways drift': 'انجراف جانبي', 'Upward drift': 'انجراف للأعلى',
+  'Settle from above': 'هبوط من الأعلى', 'Soft zoom': 'تكبير ناعم', 'Slide in from the other side': 'انزلاق من الجانب الآخر', 'Long slide up': 'انزلاق طويل للأعلى',
+  'Long slide down': 'انزلاق طويل للأسفل', 'Text and device from opposite sides': 'النص والجهاز من جهتين متقابلتين', 'Text from top, device from bottom': 'النص من الأعلى والجهاز من الأسفل',
+  'Top-to-bottom wave': 'موجة من الأعلى للأسفل', 'Bottom-up cascade': 'تتابع من الأسفل للأعلى', 'Zoom in with overshoot': 'تكبير مع تجاوز', 'Burst from the centre': 'انفجار من المركز',
+  'Fall into place': 'سقوط إلى الموضع', 'Device grows in': 'الجهاز يكبر', 'Title punches in': 'العنوان يندفع', 'Bounce up': 'ارتداد للأعلى', 'Elastic pop': 'ظهور مطاطي',
+  'Elastic slide': 'انزلاق مطاطي', 'Spring rise': 'صعود نابضي', 'Jelly': 'هلامي', 'Spin in': 'دخول دوّار', 'Twist': 'التواء', 'Flip in': 'انقلاب', 'Pendulum': 'بندول', 'Roll in': 'دحرجة',
+  'Device drops in': 'الجهاز يسقط', 'Device tilts up': 'الجهاز يميل صاعداً', 'Device zooms out': 'الجهاز يبتعد', 'Device from the side': 'الجهاز من الجانب', 'Device spins in': 'الجهاز يدور',
+  'Cinematic push-in': 'اقتراب سينمائي', 'Cinematic pull-back': 'ابتعاد سينمائي', 'Sideways pan': 'حركة جانبية', 'Upward pan': 'حركة للأعلى', 'Slow reveal': 'كشف بطيء', 'Documentary': 'وثائقي',
+  'Party pop': 'احتفال', 'Wobble': 'تمايل', 'Hop': 'قفز', 'Floaty': 'طفو', 'Tumble': 'تدحرج', 'Zigzag': 'متعرّج',
   // messages
   'Saved': 'تم الحفظ', 'Font added: {0}': 'أُضيف الخط: {0}', 'All text now uses {0}': 'كل النصوص تستخدم الآن {0}',
   'A project needs at least one slide': 'يحتاج المشروع إلى شريحة واحدة على الأقل', 'Background applied to all slides': 'طُبّقت الخلفية على كل الشرائح',

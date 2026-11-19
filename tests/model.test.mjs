@@ -153,6 +153,10 @@ test('stickers and motion through the agent tools', async () => {
   assert.deepEqual([r.data.element.kind, r.data.element.w, r.data.element.text], ['pill', 460, 'New feature']);
   r = await call(handle, 'set_motion', { preset: 'pop', transition: 'push', seconds: 99, fps: 25 });
   assert.deepEqual([r.data.motion.preset, r.data.motion.transition, r.data.motion.seconds, r.data.motion.fps], ['pop', 'push', 15, 30]);
+  r = await call(handle, 'set_motion', { preset: 'pan-side' });
+  assert.deepEqual([r.data.motion.transition, r.data.motion.camera], ['push', 'pan-left'], 'a template brings its transition and camera');
+  r = await call(handle, 'set_motion', { preset: 'party', transition: 'wipe' });
+  assert.deepEqual([r.data.motion.transition, r.data.motion.float], ['wipe', true], 'explicit values win over the template defaults');
   r = await call(handle, 'set_motion', { music: 'lofi', musicVolume: 0.4, float: true });
   assert.deepEqual(r.data.motion.music, { type: 'builtin', id: 'lofi', path: '', volume: 0.4 });
   assert.equal(r.data.motion.float, true);
@@ -170,4 +174,11 @@ test('Google Fonts stylesheet parsing keeps Latin and Arabic files only', () => 
   const css = `/* cyrillic */\n@font-face { font-family: 'Cairo'; font-style: normal; font-weight: 200 1000; src: url(https://fonts.gstatic.com/s/cairo/v1/a.woff2) format('woff2'); unicode-range: U+0400-045F; }\n/* arabic */\n@font-face { font-family: 'Cairo'; font-style: normal; font-weight: 200 1000; src: url(https://fonts.gstatic.com/s/cairo/v1/b.woff2) format('woff2'); unicode-range: U+0600-06FF; }\n/* latin */\n@font-face { font-family: 'Cairo'; font-style: italic; font-weight: 400; src: url(https://fonts.gstatic.com/s/cairo/v1/i.woff2) format('woff2'); unicode-range: U+0000-00FF; }\n/* latin */\n@font-face { font-family: 'Cairo'; font-style: normal; font-weight: 700; src: url(https://evil.example/x.woff2) format('woff2'); }\n/* latin */\n@font-face { font-family: 'Cairo'; font-style: normal; font-weight: 700; src: url(https://fonts.gstatic.com/s/cairo/v1/c.woff2) format('woff2'); unicode-range: U+0000-00FF; }`;
   const files = M.parseGoogleCss(css);
   assert.deepEqual(files.map((f) => [f.label, f.url.split('/').pop(), f.weight]), [['arabic', 'b.woff2', '200 1000'], ['latin', 'c.woff2', '700']]);
+});
+
+test('at least 40 motion templates, all with labels and categories', () => {
+  assert.ok(M.MOTION_TABLE.length >= 40);
+  assert.equal(new Set(M.MOTION_TABLE.map((r) => r[0])).size, M.MOTION_TABLE.length, 'ids are unique');
+  for (const [id, label, cat] of M.MOTION_TABLE) { assert.ok(label && M.MOTION_CATS[cat], id); assert.equal(M.applyMotionTemplate(M.makeMotion(), id).preset, id); }
+  assert.throws(() => M.applyMotionTemplate(M.makeMotion(), 'nope'), /Unknown motion template/);
 });

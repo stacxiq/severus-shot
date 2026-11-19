@@ -144,24 +144,37 @@
   </form>
 </dialog>
 
-<dialog id="videoDlg" class="wide">
+<dialog id="videoDlg" class="wide video">
   <form method="dialog" class="dlg">
-    <div class="dlgHead"><h2>Motion video</h2><button value="cancel" class="x" title="Close">×</button></div>
+    <div class="dlgHead"><h2>Motion video</h2><span id="vidSummary" class="pillNote" data-no-i18n></span><button value="cancel" class="x" title="Close">×</button></div>
     <div class="videoCols">
-      <canvas id="vidCanvas" dir="ltr"></canvas>
-      <div>
-        <div id="vidMotion">
-          <div class="f"><span>Animation</span><div class="inline"><select id="vidPreset"></select></div></div>
-          <div class="f"><span>Transition</span><div class="inline"><select id="vidTransition"></select></div></div>
-          <div class="f"><span>Seconds per slide</span><div class="inline"><input id="vidSeconds" type="number" min="1" max="15" step="0.5"></div></div>
-          <div class="f"><span>Frame rate</span><div class="inline"><select id="vidFps" data-no-i18n><option>24</option><option>30</option><option>60</option></select></div></div>
-          <div class="f"><span>Idle motion</span><div class="inline"><label class="check"><input type="checkbox" id="vidFloat"> <span>Keep elements floating</span></label></div></div>
-          <div class="f"><span>Music</span><div class="inline"><select id="vidMusic"></select></div></div>
-          <div class="f" id="vidFileRow" hidden><span>Audio file</span><div class="inline"><button type="button" data-act="video-audio">Choose…</button><span id="vidFile" class="path" data-no-i18n></span></div></div>
-          <div class="f" id="vidVolRow" hidden><span>Volume</span><div class="inline"><input id="vidVolume" type="range" min="0" max="1" step="0.05"><button type="button" class="ghost" data-act="video-listen" data-icon="play" title="Listen"></button></div></div>
+      <div class="vidLeft">
+        <div class="vidStage"><canvas id="vidCanvas" dir="ltr"></canvas></div>
+        <div class="vidTransport">
+          <button type="button" class="ghost icon-only" data-act="video-toggle" id="vidToggle" data-icon="pause" title="Play / pause"></button>
+          <input id="vidScrub" type="range" min="0" max="1000" value="0" title="Timeline">
+          <span id="vidTime" data-no-i18n></span>
         </div>
         <div class="f"><span>Size</span><div class="inline"><select id="vidSize" data-no-i18n></select></div></div>
         <div class="f"><span>Language</span><div class="inline"><select id="vidLang" data-no-i18n></select></div></div>
+      </div>
+      <div class="vidRight">
+        <h3>Motion template</h3>
+        <div id="vidCats" class="chipRow"></div>
+        <div id="vidGrid" class="motionGrid"></div>
+        <h3>Timing</h3>
+        <div id="vidMotion" class="timing">
+          <label><span>Transition</span><select id="vidTransition"></select></label>
+          <label><span>Camera</span><select id="vidCamera"></select></label>
+          <label><span>Seconds per slide</span><input id="vidSeconds" type="number" min="1" max="15" step="0.5"></label>
+          <label><span>Frame rate</span><select id="vidFps" data-no-i18n><option>24</option><option>30</option><option>60</option></select></label>
+          <label class="check wide2"><input type="checkbox" id="vidFloat"> <span>Keep elements floating</span></label>
+          <select id="vidPreset" hidden></select><select id="vidMusic" hidden></select>
+        </div>
+        <h3>Music</h3>
+        <div id="vidTracks" class="trackRow"></div>
+        <div class="f" id="vidFileRow" hidden><span>Audio file</span><div class="inline"><button type="button" data-act="video-audio">Choose…</button><span id="vidFile" class="path" data-no-i18n></span></div></div>
+        <div class="f" id="vidVolRow" hidden><span>Volume</span><div class="inline"><input id="vidVolume" type="range" min="0" max="1" step="0.05"><button type="button" class="ghost icon-only" data-act="video-listen" data-icon="volume" title="Listen"></button></div></div>
         <p id="vidStatus" class="status" data-no-i18n></p>
         <div class="actions"><button type="button" data-act="video-cancel" hidden>Cancel</button><button type="button" class="primary" data-act="video-run" data-icon="export"><span>Export MP4</span></button></div>
       </div>
