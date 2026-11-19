@@ -327,3 +327,20 @@ test('the design assistant parses replies and carries out actions', async () => 
   const title = studio.slide.elements.find((e) => e.type === 'text').text.en;
   assert.deepEqual(await runChatActions(studio, M, [{ do: 'set_title', text: title }], null), []);
 });
+
+import { alternating, colorOf } from '../ui/js/ai.js';
+test('chat keeps turns alternating and can set a plain background and polish', async () => {
+  const h = [{ role: 'assistant', content: 'a0' }, { role: 'user', content: 'u1' }, { role: 'user', content: 'u2' }, { role: 'assistant', content: 'a2' }, { role: 'user', content: 'u3' }];
+  assert.deepEqual(alternating(h).map((m) => m.content), ['u2', 'a2', 'u3']);
+  assert.equal(colorOf('Blue'), '#2563eb');
+  assert.equal(colorOf('a calming pastel blue'), '#bfdbfe');
+  assert.equal(colorOf('#abc'), '#aabbcc');
+  assert.equal(colorOf('sparkly'), null);
+  const studio = new TestStudio();
+  const done = await runChatActions(studio, M, parseChatReply('{"reply":"ok","actions":[{"do":"set_background","color":"blue"},{"do":"polish"}]}').actions, null);
+  assert.equal(done.length, 2);
+  assert.deepEqual(studio.slide.background, M.makeBackground({ type: 'solid', color: '#2563eb' }));
+  assert.equal(studio.slide.elements.find((e) => e.type === 'text').color, '#ffffff');
+  assert.ok(studio.slide.elements.some((e) => e.type === 'shape' && e.shape === 'glow'));
+  assert.ok(studio.slide.elements.filter((e) => e.type === 'screenshot').every((e) => e.shadow && e.glare));
+});

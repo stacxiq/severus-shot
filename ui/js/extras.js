@@ -3,7 +3,7 @@ import * as M from './model.js';
 import { bridge, isTauri } from './bridge.js';
 import { t, localize } from './i18n.js';
 import { icon } from './icons.js';
-import { AI_DEFAULTS, LANG_NAMES, LocalAI, langName, normalizeSettings, translateProject, draftListing, translateListing, chatSchema, chatSystem, chatContext, parseChatReply, runChatActions } from './ai.js';
+import { AI_DEFAULTS, LANG_NAMES, LocalAI, langName, normalizeSettings, translateProject, draftListing, translateListing, chatSchema, chatSystem, alternating, chatContext, parseChatReply, runChatActions } from './ai.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -359,7 +359,7 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
   /* ---------- design assistant chat ---------- */
   const history = [];
   let chatBusy = false;
-  const HINTS = ['Write a stronger headline', 'Try a different layout', 'Change the colours', 'Add a rating badge', 'Translate everything to Arabic'];
+  const HINTS = ['Polish this slide', 'Write a stronger headline', 'Try a different layout', 'Change the colours', 'Add a rating badge', 'Translate everything to Arabic'];
   function bubble(kind, text, list = []) {
     const div = document.createElement('div');
     div.className = `msg ${kind}`;
@@ -390,15 +390,17 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
     try {
       const client = await aiClient();
       history.push({ role: 'user', content: msg });
-      const raw = await client.chat([{ role: 'system', content: chatSystem(chatContext(studio, M)) }, ...history.slice(-6)], { schema: chatSchema(chatContext(studio, M).looks), temperature: 0.5, maxTokens: 400 });
+      const raw = await client.chat([{ role: 'system', content: chatSystem(chatContext(studio, M)) }, ...alternating(history)], { schema: chatSchema(chatContext(studio, M).looks), temperature: 0.5, maxTokens: 400 });
       const { reply, actions } = parseChatReply(raw);
       history.push({ role: 'assistant', content: JSON.stringify({ reply, actions }) });
       const done = await runChatActions(studio, M, actions, client);
       wait.remove();
-      bubble('ai', reply, done.map((x) => `✓ ${x}`));
+      bubble('ai', reply, done.length ? done.map((x) => `✓ ${x}`) : (actions.length ? [t('Nothing on the slide needed changing.')] : []));
+      if (!done.length && !actions.length && /\b(chang|polish|updat|add|switch|made|set)\w*/i.test(reply)) bubble('ai', t('Note: no change was made to the slide. Try asking in other words, for example “set the background to blue”.'));
       if (done.length) studio.emit('project');
     } catch (err) {
       wait.remove();
+      if (history.length && history[history.length - 1].role === 'user') history.pop(); // keep the turns alternating
       bubble('ai err', err && err.code === 'setup' ? t('The local AI is not set up yet. Press Settings, then “Set up”: it is a one-time download.') : String(err && err.message ? err.message : err));
     } finally { chatBusy = false; }
   }

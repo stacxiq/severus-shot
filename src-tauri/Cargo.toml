@@ -1,6 +1,6 @@
 [package]
 name = "severus-shot"
-version = "0.8.1"
+version = "0.8.2"
 description = "Desktop App Store / Google Play screenshot maker with agent (MCP) control"
 edition = "2021"
 rust-version = "1.77"
