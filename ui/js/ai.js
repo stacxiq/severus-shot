@@ -170,41 +170,58 @@ export async function translateListing(ai, entry, from, to, fields) {
 // ----- design assistant: the model answers with a short reply plus actions the app carries out -----
 export const CHAT_LAYOUTS = ['hero', 'tilted', 'multi', 'stage', 'proof', 'text', 'floating', 'minimal'];
 export const CHAT_BADGES = { rating: 'rating', award: 'laurel', pill: 'pill', check: 'check' };
-export const CHAT_SCHEMA = {
-  type: 'object',
-  properties: {
-    reply: { type: 'string' },
-    actions: {
-      type: 'array',
-      maxItems: 4,
-      items: {
-        type: 'object',
-        properties: {
-          do: { type: 'string', enum: ['set_title', 'set_subtitle', 'add_text', 'change_layout', 'change_colors', 'add_badge', 'add_slide', 'translate'] },
-          text: { type: 'string' }, style: { type: 'string' }, kind: { type: 'string' }, lang: { type: 'string' },
-        },
-        required: ['do'],
+const CHAT_DOS = ['set_title', 'set_subtitle', 'add_text', 'change_layout', 'change_colors', 'add_badge', 'add_slide', 'translate'];
+// Every action has its own shape, so a server that enforces the schema can only pick real layouts, looks and badges.
+export function chatSchema(looks) {
+  const one = (name, props = {}) => ({ type: 'object', properties: { do: { type: 'string', enum: [name] }, ...props }, required: ['do', ...Object.keys(props)] });
+  const text = { type: 'string' };
+  return {
+    type: 'object',
+    properties: {
+      reply: { type: 'string' },
+      actions: {
+        type: 'array',
+        maxItems: 4,
+        items: { anyOf: [
+          one('set_title', { text }), one('set_subtitle', { text }), one('add_text', { text }),
+          one('change_layout', { style: { type: 'string', enum: CHAT_LAYOUTS } }),
+          one('change_colors', { style: { type: 'string', enum: looks } }),
+          one('add_badge', { kind: { type: 'string', enum: Object.keys(CHAT_BADGES) } }),
+          one('add_slide'), one('translate', { lang: { type: 'string' } }),
+        ] },
       },
     },
-  },
-  required: ['reply', 'actions'],
-};
+    required: ['reply', 'actions'],
+  };
+}
+export const CHAT_SCHEMA = chatSchema(['noir', 'cream', 'aurora']);
 
 export function chatSystem(ctx) {
-  return `You are the design assistant inside Severus Shot, an app for making App Store and Google Play screenshots. You change the current slide by returning actions; the app carries them out.
-Answer ONLY with JSON of this shape: {"reply": "one short sentence for the user", "actions": [ ... ]}
-Actions you may use (at most 4):
-{"do":"set_title","text":"..."}  the headline: at most 5 words, a benefit, no full stop
-{"do":"set_subtitle","text":"..."}  the line under it: at most 12 words
-{"do":"add_text","text":"..."}  one more line of text on the slide
-{"do":"change_layout","style":"${CHAT_LAYOUTS.join('|')}"}
-{"do":"change_colors","style":"${ctx.looks.join('|')}"}
-{"do":"add_badge","kind":"rating|award|pill|check","text":"..."}
-{"do":"add_slide"}  a copy of this slide to continue the story
-{"do":"translate","lang":"ar"}  translate every caption into that language code
-Use "actions": [] when the user only asks a question or wants advice.
-Write captions and the reply in ${langName(ctx.lang)}. Do not invent features the user did not mention. No emoji.
-Current project: "${ctx.project}". Slide ${ctx.slide} of ${ctx.slides}.
+  return `You are the design assistant inside Severus Shot, an app for making App Store screenshots. The user asks for a change to the current slide. You answer with JSON only: a short reply and a list of actions. The app carries the actions out.
+
+Actions:
+set_title: a new headline. At most 5 words. It must be different from the current headline.
+set_subtitle: a new line under the headline. At most 12 words.
+add_text: one more line of text.
+change_layout: style is one of: ${CHAT_LAYOUTS.join(', ')}.
+change_colors: style is one of: ${ctx.looks.join(', ')}.
+add_badge: kind is one of: rating, award, pill, check.
+add_slide: adds a copy of this slide.
+translate: lang is a language code such as ar, en or fr.
+Only use the actions the user asked for. Use an empty list when the user only asks a question.
+
+Examples:
+User: make the headline shorter and add stars
+{"reply":"Shorter headline and a star rating added.","actions":[{"do":"set_title","text":"Dinner in minutes"},{"do":"add_badge","kind":"rating"}]}
+User: I want a dark look with the phone tilted
+{"reply":"Switched to a dark look and a tilted phone.","actions":[{"do":"change_layout","style":"tilted"},{"do":"change_colors","style":"noir"}]}
+User: translate to Arabic
+{"reply":"Translating the captions into Arabic.","actions":[{"do":"translate","lang":"ar"}]}
+User: is this headline good?
+{"reply":"It is clear, but a number or a time would make it stronger.","actions":[]}
+
+Write new captions and the reply in ${langName(ctx.lang)}. Never invent app features.
+Project: "${ctx.project}". Slide ${ctx.slide} of ${ctx.slides}.
 Current headline: "${ctx.title}"
 Current subtitle: "${ctx.subtitle}"`;
 }
@@ -216,9 +233,10 @@ export function parseChatReply(text) {
   const start = raw.indexOf('{'), end = raw.lastIndexOf('}');
   if (start >= 0 && end > start) { try { data = JSON.parse(raw.slice(start, end + 1)); } catch (_) { data = null; } }
   if (!data || typeof data !== 'object') return { reply: cleanReply(raw) || '…', actions: [] };
-  const allowed = new Set(CHAT_SCHEMA.properties.actions.items.properties.do.enum);
+  const allowed = new Set(CHAT_DOS);
+  const pick = (v) => (v === undefined || v === null ? undefined : String(v).toLowerCase().split(/[|,\s]+/).filter(Boolean)[0]);
   const actions = (Array.isArray(data.actions) ? data.actions : []).filter((a) => a && allowed.has(a.do)).slice(0, 4)
-    .map((a) => ({ do: a.do, text: a.text === undefined ? undefined : cleanReply(String(a.text)).slice(0, 300), style: a.style && String(a.style).toLowerCase().trim(), kind: a.kind && String(a.kind).toLowerCase().trim(), lang: a.lang && String(a.lang).trim() }));
+    .map((a) => ({ do: a.do, text: a.text === undefined ? undefined : cleanReply(String(a.text)).slice(0, 300), style: pick(a.style), kind: pick(a.kind), lang: a.lang && String(a.lang).trim() }));
   return { reply: cleanReply(String(data.reply || '')) || '…', actions };
 }
 
@@ -241,6 +259,8 @@ export async function runChatActions(studio, M, actions, ai) {
         const slide = studio.slide, lang = studio.lang;
         const texts = slide.elements.filter((e) => e.type === 'text');
         const accent = (slide.elements.find((e) => e.type === 'shape' || (e.type === 'sticker' && e.kind !== 'rating')) || {}).fill || '#7c6cff';
+        const same = (el) => el && String((el.text || {})[lang] || '').trim() === String(a.text || '').trim();
+        if ((a.do === 'set_title' && same(texts[0])) || (a.do === 'set_subtitle' && same(texts[1]))) continue; // the model repeated what is already there
         if (a.do === 'set_title' && a.text) {
           if (texts[0]) texts[0].text[lang] = a.text; else slide.elements.push(M.makeElement('text', { text: { [lang]: a.text }, x: M.BASE.w / 2, y: 330, fontSize: 132, fontWeight: 800, name: 'Title' }));
           done.push(`Headline: “${a.text}”`);

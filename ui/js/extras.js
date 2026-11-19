@@ -3,7 +3,7 @@ import * as M from './model.js';
 import { bridge, isTauri } from './bridge.js';
 import { t, localize } from './i18n.js';
 import { icon } from './icons.js';
-import { AI_DEFAULTS, LANG_NAMES, LocalAI, langName, normalizeSettings, translateProject, draftListing, translateListing, CHAT_SCHEMA, chatSystem, chatContext, parseChatReply, runChatActions } from './ai.js';
+import { AI_DEFAULTS, LANG_NAMES, LocalAI, langName, normalizeSettings, translateProject, draftListing, translateListing, chatSchema, chatSystem, chatContext, parseChatReply, runChatActions } from './ai.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -390,7 +390,7 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
     try {
       const client = await aiClient();
       history.push({ role: 'user', content: msg });
-      const raw = await client.chat([{ role: 'system', content: chatSystem(chatContext(studio, M)) }, ...history.slice(-6)], { schema: CHAT_SCHEMA, temperature: 0.5, maxTokens: 400 });
+      const raw = await client.chat([{ role: 'system', content: chatSystem(chatContext(studio, M)) }, ...history.slice(-6)], { schema: chatSchema(chatContext(studio, M).looks), temperature: 0.5, maxTokens: 400 });
       const { reply, actions } = parseChatReply(raw);
       history.push({ role: 'assistant', content: JSON.stringify({ reply, actions }) });
       const done = await runChatActions(studio, M, actions, client);
@@ -441,7 +441,7 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
       if (!(st.engine && st.model) && !out.ownServer) return { ...out, note: 'not set up yet' };
       const client = await aiClient();
       out.translation = await client.translate('Order food in seconds', 'en', 'ar');
-      const parsed = parseChatReply(await client.chat([{ role: 'system', content: chatSystem(chatContext(studio, M)) }, { role: 'user', content: 'Make the headline shorter and add a rating badge.' }], { schema: CHAT_SCHEMA, temperature: 0.3, maxTokens: 300 }));
+      const parsed = parseChatReply(await client.chat([{ role: 'system', content: chatSystem(chatContext(studio, M)) }, { role: 'user', content: 'Make the headline shorter and add a rating badge.' }], { schema: chatSchema(chatContext(studio, M).looks), temperature: 0.3, maxTokens: 300 }));
       out.chatReply = parsed.reply; out.chatActions = parsed.actions;
       return out;
     });

@@ -322,5 +322,8 @@ test('the design assistant parses replies and carries out actions', async () => 
   assert.equal(studio.slide.elements.find((e) => e.type === 'text').text.en, 'Order in seconds');
   const sys = chatSystem(chatContext(studio, M));
   assert.ok(sys.includes('Order in seconds') && sys.includes('noir') && sys.includes('Slide 2 of 2'));
-  await studio.undo?.();
+  // Small models echo the menu of choices or the current caption; both are handled.
+  assert.equal(parseChatReply('{"reply":"ok","actions":[{"do":"change_layout","style":"hero|tilted|stage"}]}').actions[0].style, 'hero');
+  const title = studio.slide.elements.find((e) => e.type === 'text').text.en;
+  assert.deepEqual(await runChatActions(studio, M, [{ do: 'set_title', text: title }], null), []);
 });
