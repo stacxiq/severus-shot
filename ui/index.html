@@ -27,6 +27,8 @@
   <select id="sizeSel" title="Preview size"></select>
   <select id="langSel" title="Caption language" data-no-i18n></select>
   <button id="uiLang" data-act="ui-lang" data-icon="globe" class="ghost" title="Switch interface language" data-no-i18n><span></span></button>
+  <button id="updBadge" class="badge on ghost" data-act="update-open" data-icon="download" title="A new version is available" hidden data-no-i18n><span></span></button>
+  <button data-act="ai" data-icon="agents" class="ghost" title="Local AI: translate and write captions (Ctrl+J)"><span>AI</span></button>
   <button id="mcpBadge" class="badge ghost" data-act="agents" data-icon="agents" title="Agent control (MCP)"><span>Agents</span></button>
   <button data-act="video" data-icon="play" title="Motion video (Ctrl+Shift+E)"><span>Video</span></button>
   <button class="primary" data-act="export" data-icon="export" title="Export images (Ctrl+E)"><span>Export</span></button>
@@ -110,12 +112,42 @@
         <legend class="mt">Options</legend>
         <label class="check"><input type="checkbox" id="exOnly"> <span>Current slide only</span></label>
         <label class="check"><input type="checkbox" id="exZip" checked> <span>Also make a ZIP</span></label>
+        <label class="check"><span>Layout</span> <select id="exLayout"><option value="folders">Folders by size</option><option value="fastlane">fastlane (ready to upload)</option></select></label>
         <label class="check"><span>Format</span> <select id="exFmt"><option value="png">PNG (flat RGB)</option><option value="jpg">JPG</option></select></label>
       </fieldset>
     </div>
     <label class="row"><span>Folder</span> <input id="exDir" type="text" spellcheck="false" dir="ltr"><button type="button" data-act="export-pick">Choose…</button></label>
     <p id="exStatus" class="status" data-no-i18n></p>
     <div class="actions"><button value="cancel">Close</button><button type="button" class="primary" data-act="export-run">Export</button></div>
+  </form>
+</dialog>
+
+<dialog id="captureDlg">
+  <form method="dialog" class="dlg">
+    <h2>Capture from a simulator or phone</h2>
+    <p>Take a screenshot straight from a running iOS simulator, an Android emulator or a connected Android phone. It lands on the current slide, already framed.</p>
+    <div id="capList" class="capList" data-no-i18n></div>
+    <p id="capStatus" class="status" data-no-i18n></p>
+    <div class="actions"><button type="button" data-act="capture-refresh" data-icon="redo"><span>Refresh</span></button><button value="cancel" class="primary">Done</button></div>
+  </form>
+</dialog>
+
+<dialog id="aiDlg">
+  <form method="dialog" class="dlg">
+    <h2>Local AI</h2>
+    <p>Translate and write captions with a small free model that runs on this computer. Nothing is sent to the cloud. It works with Ollama, LM Studio or any OpenAI-compatible server.</p>
+    <label class="row"><span>Server</span> <input id="aiBase" type="text" spellcheck="false" dir="ltr" style="flex:1"></label>
+    <label class="row"><span>Model</span> <input id="aiModel" type="text" spellcheck="false" dir="ltr" list="aiModels" style="flex:1"><datalist id="aiModels"></datalist>
+      <button type="button" data-act="ai-test">Test</button><button type="button" data-act="ai-pull" data-icon="download" title="Download this model with Ollama"><span>Download</span></button></label>
+    <h3>Translate captions</h3>
+    <label class="row"><span>From</span> <select id="aiFrom" data-no-i18n></select> <span>To</span> <input id="aiTo" type="text" dir="ltr" size="7" placeholder="ar" list="aiLangs"><datalist id="aiLangs"></datalist>
+      <button type="button" class="primary" data-act="ai-translate">Translate</button></label>
+    <label class="check"><input type="checkbox" id="aiOver"> <span>Replace captions that are already translated</span></label>
+    <h3>Caption ideas</h3>
+    <label class="row"><span>About</span> <input id="aiAbout" type="text" style="flex:1" placeholder="What the app or this screen does"><button type="button" data-act="ai-suggest">Suggest</button></label>
+    <div id="aiIdeas" class="aiIdeas" data-no-i18n></div>
+    <p id="aiStatus" class="status" data-no-i18n></p>
+    <div class="actions"><button value="cancel" class="primary">Done</button></div>
   </form>
 </dialog>
 
@@ -176,7 +208,7 @@
         <div class="f" id="vidFileRow" hidden><span>Audio file</span><div class="inline"><button type="button" data-act="video-audio">Choose…</button><span id="vidFile" class="path" data-no-i18n></span></div></div>
         <div class="f" id="vidVolRow" hidden><span>Volume</span><div class="inline"><input id="vidVolume" type="range" min="0" max="1" step="0.05"><button type="button" class="ghost icon-only" data-act="video-listen" data-icon="volume" title="Listen"></button></div></div>
         <p id="vidStatus" class="status" data-no-i18n></p>
-        <div class="actions"><button type="button" data-act="video-cancel" hidden>Cancel</button><button type="button" class="primary" data-act="video-run" data-icon="export"><span>Export MP4</span></button></div>
+        <div class="actions"><button type="button" id="vidFfmpeg" data-act="ffmpeg-install" data-icon="download" hidden><span>Download ffmpeg</span></button><button type="button" data-act="video-cancel" hidden>Cancel</button><button type="button" class="primary" data-act="video-run" data-icon="export"><span>Export MP4</span></button></div>
       </div>
     </div>
   </form>

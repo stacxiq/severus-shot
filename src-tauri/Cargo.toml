@@ -1,6 +1,6 @@
 [package]
 name = "severus-shot"
-version = "0.4.0"
+version = "0.5.0"
 description = "Desktop App Store / Google Play screenshot maker with agent (MCP) control"
 edition = "2021"
 rust-version = "1.77"
@@ -18,7 +18,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 zip = { version = "2", default-features = false }
 fontdb = "0.23"
 tiny_http = "0.12"
-ureq = { version = "2", default-features = false }
+ureq = { version = "2", default-features = false, features = ["tls", "native-certs"] }
 
 # Keep image encoding fast in development builds too.
 [profile.dev.package."*"]

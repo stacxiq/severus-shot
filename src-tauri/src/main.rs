@@ -7,6 +7,7 @@
 mod cli;
 mod commands;
 mod mcp;
+mod tools;
 
 use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
@@ -85,8 +86,17 @@ fn run(job: Option<cli::ExportJob>) {
             commands::video_start,
             commands::video_frame,
             commands::video_finish,
+            tools::ffmpeg_install,
+            tools::check_update,
+            tools::open_url,
+            tools::capture_devices,
+            tools::capture_screenshot,
+            tools::ai_request,
         ])
         .setup(move |app| {
+            if let Ok(docs) = app.path().document_dir().or_else(|_| app.path().home_dir()) {
+                let _ = tools::BIN_DIR.set(docs.join("Severus Shot").join("bin"));
+            }
             if headless {
                 // Export mode: keep the window hidden and do not open the agent port.
                 #[cfg(target_os = "macos")]

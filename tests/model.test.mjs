@@ -182,3 +182,54 @@ test('at least 40 motion templates, all with labels and categories', () => {
   for (const [id, label, cat] of M.MOTION_TABLE) { assert.ok(label && M.MOTION_CATS[cat], id); assert.equal(M.applyMotionTemplate(M.makeMotion(), id).preset, id); }
   assert.throws(() => M.applyMotionTemplate(M.makeMotion(), 'nope'), /Unknown motion template/);
 });
+
+// ----- 0.5: fastlane layout and local AI helpers -----
+import { LocalAI, cleanReply, parseIdeas, translateProject, captionsToTranslate } from '../ui/js/ai.js';
+
+test('fastlane paths match what deliver and supply read', () => {
+  const size = (id) => M.resolveSize(id);
+  assert.deepEqual(M.fastlanePath(size('iphone-6.9'), 'en', 1), ['fastlane', 'screenshots', 'en-US', '01_iphone-6.9.png']);
+  assert.deepEqual(M.fastlanePath(size('ipad-13'), 'ar', 3, 'jpg'), ['fastlane', 'screenshots', 'ar-SA', '03_ipad-13.jpg']);
+  assert.deepEqual(M.fastlanePath(size('android-phone'), 'ar', 2), ['fastlane', 'metadata', 'android', 'ar', 'images', 'phoneScreenshots', '02.png']);
+  assert.deepEqual(M.fastlanePath(size('android-tablet-10'), 'en', 1).slice(-2), ['tenInchScreenshots', '01.png']);
+  assert.equal(M.fastlanePath(size('800x600'), 'en', 1), null);
+  assert.equal(M.storeLocale('pt-BR', 'ios'), 'pt-BR');
+});
+
+test('model replies are cleaned up', () => {
+  assert.equal(cleanReply('<think>hmm</think>\n"مرحبا بالعالم"'), 'مرحبا بالعالم');
+  assert.equal(cleanReply('Translation: Hello'), 'Hello');
+  assert.deepEqual(parseIdeas('1. Track every order\n- Pay in one tap\n\n"Track every order"\n* Fast delivery', 3), ['Track every order', 'Pay in one tap', 'Fast delivery']);
+});
+
+test('translate_captions fills the target language through the local model', async () => {
+  const studio = new TestStudio();
+  const first = studio.project.slides[0].elements.find((e) => e.type === 'text');
+  first.text = { en: 'Order in seconds' };
+  const calls = [];
+  const request = async (url, body) => {
+    calls.push({ url, body });
+    return { choices: [{ message: { content: `"AR:${body.messages[1].content}"` } }] };
+  };
+  const ai = new LocalAI(request, { base: 'http://127.0.0.1:11434/v1/', model: 'gemma3:1b' });
+  const todo = captionsToTranslate(studio.project, 'en', 'ar');
+  assert.ok(todo.length >= 1);
+  const r = await translateProject(studio, ai, { from: 'en', to: 'ar' });
+  assert.equal(r.translated, todo.length);
+  assert.equal(first.text.ar, 'AR:Order in seconds');
+  assert.ok(studio.project.languages.includes('ar'));
+  assert.equal(calls[0].url, 'http://127.0.0.1:11434/v1/chat/completions');
+  assert.equal(calls[0].body.model, 'gemma3:1b');
+  // A second run has nothing left to do unless overwrite is set.
+  assert.equal((await translateProject(studio, ai, { from: 'en', to: 'ar' })).translated, 0);
+  await assert.rejects(() => translateProject(studio, ai, { from: 'en', to: 'en' }));
+  await assert.rejects(() => translateProject(studio, ai, { from: 'en', to: 'not a code' }));
+});
+
+test('the new agent tools are listed', async () => {
+  const handle = createRpcHandler(new TestStudio(), {});
+  const r = await rpc(handle, 'tools/list', {});
+  const names = r.result.tools.map((x) => x.name);
+  for (const n of ['list_devices', 'capture_device', 'install_ffmpeg', 'translate_captions']) assert.ok(names.includes(n), n);
+  assert.deepEqual(r.result.tools.find((x) => x.name === 'export').inputSchema.properties.layout.enum, ['folders', 'fastlane']);
+});

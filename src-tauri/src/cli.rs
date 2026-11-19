@@ -18,6 +18,7 @@ EXPORT OPTIONS:
   --langs <list>     Comma-separated language codes (default: all project languages)
   --format <fmt>     png (default) or jpg
   --zip              Also write <dir>.zip
+  --layout <name>    folders (default) or fastlane (ready for fastlane deliver / supply)
 
 ENVIRONMENT:
   SEVERUS_SHOT_MCP_PORT   Port for the local MCP endpoint (default 47821)";
@@ -30,6 +31,7 @@ pub struct ExportJob {
     pub langs: Vec<String>,
     pub format: String,
     pub zip: bool,
+    pub layout: String,
     pub video: bool,
 }
 
@@ -53,6 +55,7 @@ pub fn parse_export(args: &[String], video: bool) -> Result<ExportJob, String> {
     let (mut sizes, mut langs) = (Vec::new(), Vec::new());
     let mut format = String::from("png");
     let mut zip = false;
+    let mut layout = String::from("folders");
     let mut it = args.iter();
     while let Some(a) = it.next() {
         let mut value = |name: &str| it.next().cloned().ok_or_else(|| format!("{name} needs a value"));
@@ -62,6 +65,7 @@ pub fn parse_export(args: &[String], video: bool) -> Result<ExportJob, String> {
             "--langs" => langs = list(&value("--langs")?),
             "--format" => format = value("--format")?.to_lowercase(),
             "--zip" => zip = true,
+            "--layout" => layout = value("--layout")?.to_lowercase(),
             s if s.starts_with('-') => return Err(format!("Unknown option: {s}")),
             s if project.is_none() => project = Some(s.to_string()),
             s => return Err(format!("Unexpected argument: {s}")),
@@ -74,5 +78,8 @@ pub fn parse_export(args: &[String], video: bool) -> Result<ExportJob, String> {
     if format != "png" && format != "jpg" && format != "jpeg" {
         return Err(format!("Unsupported format: {format}"));
     }
-    Ok(ExportJob { project, out: absolute(&out.ok_or("Missing --out")?)?, sizes, langs, format, zip, video })
+    if layout != "folders" && layout != "fastlane" {
+        return Err(format!("Unsupported layout: {layout}"));
+    }
+    Ok(ExportJob { project, out: absolute(&out.ok_or("Missing --out")?)?, sizes, langs, format, zip, layout, video })
 }

@@ -236,8 +236,10 @@ export class Studio {
     return out;
   }
 
-  async exportAll({ outDir, sizes, languages, slides, format = 'png', zip = false, onProgress } = {}) {
+  async exportAll({ outDir, sizes, languages, slides, format = 'png', zip = false, layout = 'folders', onProgress } = {}) {
     if (!outDir) throw new Error('outDir is required');
+    if (!M.EXPORT_LAYOUTS.includes(layout)) throw new Error(`Unknown layout "${layout}". Use folders or fastlane`);
+    const fastlane = layout === 'fastlane', skipped = new Set();
     await this.ensureAssets();
     const fmt = /^jpe?g$/i.test(format) ? 'jpg' : 'png';
     const zs = (sizes && sizes.length ? sizes : M.STORE_SIZES.map((z) => z.id)).map(M.resolveSize);
@@ -251,8 +253,10 @@ export class Studio {
       for (const z of zs) {
         for (const slide of picked) {
           const n = this.project.slides.indexOf(slide) + 1;
+          const parts = fastlane ? M.fastlanePath(z, lang, n, fmt) : [langs.length > 1 ? safeName(lang) : '', safeName(z.id), `${String(n).padStart(2, '0')}.${fmt}`];
+          if (!parts) { skipped.add(z.id); continue; }
           this.render(canvas, slide, { W: z.w, H: z.h, lang, device: z.device, final: true });
-          const path = joinPath(outDir, langs.length > 1 ? safeName(lang) : '', safeName(z.id), `${String(n).padStart(2, '0')}.${fmt}`);
+          const path = joinPath(outDir, ...parts);
           const saved = await bridge.saveImage(path, canvas.toDataURL('image/png').split(',')[1], fmt, 92);
           files.push(saved.path || path);
           if (onProgress) onProgress(files.length, total);
@@ -261,7 +265,10 @@ export class Studio {
     }
     let zipPath = null;
     if (zip) zipPath = (await bridge.zipDir(outDir, `${outDir.replace(/[\\/]+$/, '')}.zip`)).path;
-    return { outDir, count: files.length, files, zip: zipPath, warnings: this.missingAssets() };
+    const warnings = this.missingAssets();
+    if (skipped.size) warnings.push(`Skipped ${[...skipped].join(', ')}: the fastlane layout only holds App Store and Google Play sizes`);
+    const next = fastlane ? [`cd "${outDir}"`, 'fastlane deliver --skip_binary_upload --skip_metadata --overwrite_screenshots', 'fastlane supply --skip_upload_apk --skip_upload_aab --skip_upload_metadata --skip_upload_changelogs'] : undefined;
+    return { outDir, layout, count: files.length, files, zip: zipPath, warnings, ...(next ? { next } : {}) };
   }
 
   async setProject(project, filePath = null) {
@@ -333,7 +340,7 @@ export class Studio {
   // ----- motion video -----
   async exportVideo({ path, size, lang, onProgress, isCancelled } = {}) {
     if (!path) throw new Error('path is required (an .mp4 file)');
-    if (!this.hasFfmpeg) throw new Error('Video export needs ffmpeg. Install it (macOS: brew install ffmpeg · Windows: winget install ffmpeg · Linux: apt install ffmpeg) and restart Severus Shot.');
+    if (!this.hasFfmpeg) throw new Error('Video export needs ffmpeg. Use "Download ffmpeg" in the Video window (or the install_ffmpeg agent tool), then try again.');
     await this.ensureAssets();
     const z = M.VIDEO_SIZES.find((v) => v.id === (size || 'video-1080')) || M.resolveSize(size);
     const W = z.w - (z.w % 2), H = z.h - (z.h % 2);

@@ -225,3 +225,12 @@ dialog.video { width: min(1120px, 96vw); }
 .track .ic { width: 14px; height: 14px; color: var(--muted); }
 .trackRow { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
 .track span { overflow: hidden; text-overflow: ellipsis; }
+
+/* capture + local AI */
+.capList { display: grid; gap: 8px; margin-top: 12px; }
+.capItem { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line2); border-radius: 12px; background: var(--s1); }
+.capItem b { font-weight: 600; } .capItem small { color: var(--muted); display: block; }
+.capItem button { margin-inline-start: auto; }
+.capEmpty { color: var(--muted); padding: 14px; border: 1px dashed var(--line2); border-radius: 12px; }
+.aiIdeas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.aiIdeas button { border-radius: 999px; }

@@ -6,6 +6,7 @@ import { bridge, isTauri, IMAGE_FILTERS, FONT_FILTERS, PROJECT_FILTERS } from '.
 import { t, localize, setUiLang, uiLang } from './i18n.js';
 import { applyIcons } from './icons.js';
 import { initPanels } from './panels.js';
+import { initExtras } from './extras.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -437,11 +438,11 @@ async function runExport() {
   if (!outDir) throw new Error(t('Choose an output folder'));
   const status = $('#exStatus');
   const r = await studio.exportAll({
-    outDir, sizes, languages, format: $('#exFmt').value, zip: $('#exZip').checked,
+    outDir, sizes, languages, format: $('#exFmt').value, zip: $('#exZip').checked, layout: $('#exLayout').value,
     slides: $('#exOnly').checked ? [studio.slideIndex + 1] : undefined,
     onProgress: (n, total) => { status.textContent = t('Rendering {0} of {1}…', n, total); },
   });
-  status.textContent = `${t('Done: {0} file(s) in {1}', r.count, r.outDir)}${r.zip ? `\nZIP: ${r.zip}` : ''}${r.warnings.length ? `\n${t('Warnings:')}\n- ${r.warnings.join('\n- ')}` : ''}`;
+  status.textContent = `${t('Done: {0} file(s) in {1}', r.count, r.outDir)}${r.zip ? `\nZIP: ${r.zip}` : ''}${r.next ? `\n${t('To upload, run in a terminal:')}\n${r.next.join('\n')}` : ''}${r.warnings.length ? `\n${t('Warnings:')}\n- ${r.warnings.join('\n- ')}` : ''}`;
 }
 
 const actions = {
@@ -525,6 +526,8 @@ const actions = {
 };
 const panels = initPanels({ studio, toast, guard, getInfo: () => info, addScreenshots, pickImages, confirmDiscard, api: { run: (name) => (actions[name] ? actions[name]() : null) } });
 Object.assign(actions, panels.actions);
+const extras = initExtras({ studio, toast, guard, addScreenshots });
+Object.assign(actions, extras.actions);
 
 document.addEventListener('click', guard(async (e) => {
   const b = e.target.closest('[data-act]');
@@ -545,6 +548,8 @@ document.addEventListener('keydown', guard(async (e) => {
   if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); await actions.palette(); return; }
   if (document.querySelector('dialog[open]')) return;
   if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); await actions.new(); return; }
+  if (mod && e.key.toLowerCase() === 'j') { e.preventDefault(); await actions.ai(); return; }
+  if (mod && e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); await actions.capture(); return; }
   if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); await (e.shiftKey ? actions.video() : actions.export()); return; }
   if (mod && e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); await actions[e.key === 'ArrowRight' ? 'proj-next' : 'proj-prev'](); return; }
   if (mod && e.key === 'Enter') { e.preventDefault(); await actions['slide-add'](); return; }
@@ -605,7 +610,7 @@ async function runJob(job) {
       await bridge.cliDone(0, `Video saved: ${v.path} (${v.width}x${v.height}, ${v.seconds}s, ${v.frames} frames)`);
       return;
     }
-    const r = await studio.exportAll({ outDir: job.out, sizes: job.sizes, languages: job.langs, format: job.format, zip: job.zip });
+    const r = await studio.exportAll({ outDir: job.out, sizes: job.sizes, languages: job.langs, format: job.format, zip: job.zip, layout: job.layout || 'folders' });
     const warn = r.warnings.length ? `\nWarnings:\n- ${r.warnings.join('\n- ')}` : '';
     await bridge.cliDone(0, `Exported ${r.count} file(s) to ${r.outDir}${r.zip ? `\nZIP: ${r.zip}` : ''}${warn}`);
   } catch (err) {
@@ -646,5 +651,6 @@ async function runJob(job) {
     } catch (err) { console.error(err); }
   }
   await bridge.frontendReady();
+  extras.checkUpdate(true);
   bridge.listFonts().then((fonts) => { studio.systemFonts = fonts; if (!quiet) refreshPanel(); }).catch(() => null);
 })();

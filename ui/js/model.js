@@ -591,3 +591,23 @@ export function parseGoogleCss(css) {
   }
   return out;
 }
+
+// ----- fastlane layout: the folders `fastlane deliver` (App Store) and `fastlane supply` (Google Play) read -----
+const IOS_LOCALES = { en: 'en-US', ar: 'ar-SA', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', it: 'it', ja: 'ja', ko: 'ko', pt: 'pt-BR', ru: 'ru', tr: 'tr', nl: 'nl-NL', zh: 'zh-Hans', he: 'he', hi: 'hi', id: 'id', sv: 'sv', pl: 'pl', uk: 'uk', vi: 'vi', th: 'th', ms: 'ms' };
+const ANDROID_LOCALES = { en: 'en-US', ar: 'ar', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', it: 'it-IT', ja: 'ja-JP', ko: 'ko-KR', pt: 'pt-BR', ru: 'ru-RU', tr: 'tr-TR', nl: 'nl-NL', zh: 'zh-CN', he: 'iw-IL', hi: 'hi-IN', id: 'id', sv: 'sv-SE', pl: 'pl-PL', uk: 'uk', vi: 'vi', th: 'th', ms: 'ms', fa: 'fa', ur: 'ur' };
+const ANDROID_DIRS = { 'android-phone': 'phoneScreenshots', 'android-tablet-7': 'sevenInchScreenshots', 'android-tablet-10': 'tenInchScreenshots' };
+export const EXPORT_LAYOUTS = ['folders', 'fastlane'];
+
+export function storeLocale(lang, store) {
+  const code = String(lang);
+  if (code.includes('-')) return code;
+  return (store === 'android' ? ANDROID_LOCALES : IOS_LOCALES)[code.toLowerCase()] || code;
+}
+
+// Path parts below the export folder, or null when the size belongs to neither store.
+export function fastlanePath(size, lang, n, fmt = 'png') {
+  const nn = String(n).padStart(2, '0');
+  if (size.store === 'ios') return ['fastlane', 'screenshots', storeLocale(lang, 'ios'), `${nn}_${size.id}.${fmt}`];
+  if (size.store === 'android') return ['fastlane', 'metadata', 'android', storeLocale(lang, 'android'), 'images', ANDROID_DIRS[size.id] || 'phoneScreenshots', `${nn}.${fmt}`];
+  return null;
+}

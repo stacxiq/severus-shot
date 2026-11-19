@@ -259,7 +259,11 @@ pub fn find_ffmpeg() -> Option<PathBuf> {
             return Some(p);
         }
     }
-    dirs.into_iter().map(|d| d.join(exe)).find(|p| p.is_file())
+    if let Some(found) = dirs.into_iter().map(|d| d.join(exe)).find(|p| p.is_file()) {
+        return Some(found);
+    }
+    // Last, the copy the app can download for itself.
+    crate::tools::local_ffmpeg()
 }
 
 #[tauri::command(async)]

@@ -166,7 +166,8 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
     const langNow = $('#vidLang').value || studio.lang;
     $('#vidLang').innerHTML = studio.project.languages.map((l) => `<option${l === langNow ? ' selected' : ''}>${esc(l)}</option>`).join('');
     $('#vidSummary').textContent = `${studio.project.slides.length} × ${m.seconds}s · ${videoDuration(studio.project).toFixed(1)}s · ${m.fps} fps`;
-    if (!$('#vidStatus').dataset.busy) $('#vidStatus').textContent = studio.hasFfmpeg ? '' : t('Video export needs ffmpeg installed (macOS: brew install ffmpeg). The preview works without it.');
+    if (!$('#vidStatus').dataset.busy) $('#vidStatus').textContent = studio.hasFfmpeg ? '' : t('Video export needs ffmpeg, a free video encoder. Download it once here; the preview works without it.');
+    $('#vidFfmpeg').hidden = studio.hasFfmpeg || !isTauri;
     localize($('#videoDlg'));
   }
   // Live preview with a scrubber. Hovering a template previews it before you commit to it.
@@ -328,7 +329,7 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
     ['Templates', 'tab:templates', 'G'], ['Elements', 'tab:elements', 'E'], ['Icons', 'tab:icons', 'I'], ['Fonts', 'tab:fonts', 'F'],
     ['Add text', 'add-text', 'T'], ['Add screenshot', 'add-screenshot', 'S'], ['Add logo or image', 'add-logo', 'L'], ['New slide', 'slide-add', 'Ctrl Enter'],
     ['Duplicate slide', 'slide-dup', ''], ['Delete slide', 'slide-del', ''], ['Undo', 'undo', 'Ctrl Z'], ['Redo', 'redo', 'Ctrl Shift Z'],
-    ['Connect an AI agent', 'agents', ''], ['Keyboard shortcuts', 'shortcuts', '?'], ['Switch interface language', 'ui-lang', ''],
+    ['Capture from a simulator or phone', 'capture', 'Ctrl Shift S'], ['Local AI: translate and write captions', 'ai', 'Ctrl J'], ['Check for updates', 'update-check', ''], ['Connect an AI agent', 'agents', ''], ['Keyboard shortcuts', 'shortcuts', '?'], ['Switch interface language', 'ui-lang', ''],
   ];
   let palIndex = 0, palHits = [];
   function drawPalette() {

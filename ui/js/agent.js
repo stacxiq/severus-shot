@@ -1,5 +1,8 @@
 // MCP (Model Context Protocol) tools. The Rust side only transports JSON-RPC; all behaviour lives here.
 import * as M from './model.js';
+import { bridge } from './bridge.js';
+import { LocalAI, translateProject } from './ai.js';
+import { aiSettings, captureInto } from './extras.js';
 
 const str = (description, extra = {}) => ({ type: 'string', description, ...extra });
 const numb = (description) => ({ type: 'number', description });
@@ -428,7 +431,7 @@ export function buildTools(studio) {
     },
     {
       name: 'export',
-      description: 'Export slides as flat RGB PNG (or JPG) files for the app stores: outDir/[language/]size/01.png … Returns the file list.',
+      description: 'Export slides as flat RGB PNG (or JPG) files for the app stores: outDir/[language/]size/01.png … Returns the file list. layout "fastlane" writes the folders that `fastlane deliver` and `fastlane supply` upload from, and returns the commands to run.',
       inputSchema: obj({
         outDir: str('Absolute output folder (created if missing)'),
         sizes: { type: 'array', items: { type: 'string' }, description: 'Size ids or WIDTHxHEIGHT. Default: all store sizes' },
@@ -436,8 +439,40 @@ export function buildTools(studio) {
         slides: { type: 'array', items: { type: ['number', 'string'] }, description: 'Slide numbers/ids. Default: all' },
         format: str('File format', { enum: ['png', 'jpg'] }),
         zip: bool('Also write outDir.zip'),
+        layout: str('Folder layout', { enum: M.EXPORT_LAYOUTS }),
       }, ['outDir']),
       run: async (a) => studio.exportAll(a),
+    },
+    {
+      name: 'list_devices',
+      description: 'List running iOS simulators and connected Android emulators or phones that capture_device can take a screenshot from.',
+      inputSchema: obj({}),
+      run: async () => bridge.captureDevices(),
+    },
+    {
+      name: 'capture_device',
+      description: 'Take a screenshot from a running iOS simulator or Android device and put it on a slide as a framed screenshot. With no id, the only available device is used.',
+      inputSchema: obj({ id: str('Device id from list_devices'), slide: SLIDE }),
+      run: async (a) => {
+        if (a.slide !== undefined) { studio.slideIndex = studio.project.slides.indexOf(studio.resolveSlide(a.slide)); studio.selectedId = null; }
+        const { devices } = await bridge.captureDevices();
+        const device = a.id ? devices.find((d) => d.id === a.id) : devices.length === 1 ? devices[0] : null;
+        if (!device) throw new Error(devices.length ? `Pass an id. Devices: ${devices.map((d) => `${d.id} (${d.name})`).join(', ')}` : 'No running simulator or connected Android device was found');
+        const path = await captureInto(studio, device);
+        return { device, path, slide: studio.slideIndex + 1 };
+      },
+    },
+    {
+      name: 'install_ffmpeg',
+      description: 'Download ffmpeg into the app folder so export_video works. Only needed when list_options reports videoExportAvailable false.',
+      inputSchema: obj({}),
+      run: async () => { const r = await bridge.ffmpegInstall(); studio.hasFfmpeg = true; return r; },
+    },
+    {
+      name: 'translate_captions',
+      description: 'Translate every caption from one project language to another with the local AI model configured in the app (free, offline; default Ollama gemma3:1b). Adds the target language to the project. An agent that can translate well itself should prefer set_text.',
+      inputSchema: obj({ from: str('Source language code. Default: the first project language'), to: str('Target language code, e.g. ar'), overwrite: bool('Also replace captions that already have a translation') }, ['to']),
+      run: async (a) => translateProject(studio, new LocalAI(bridge.aiRequest, aiSettings()), a),
     },
   ];
 }
