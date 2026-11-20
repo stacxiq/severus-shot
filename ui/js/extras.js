@@ -133,27 +133,47 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
 
   /* ---------- online icons (Iconify) ---------- */
   const iconColor = () => { const el = studio.slide.elements.find((x) => x.type === 'text'); return (el && /^#[0-9a-f]{6}$/i.test(el.color || '') ? el.color : '#ffffff'); };
+  const icofyData = new Map(); // "prefix:name" -> { body, width, height }
+  const icofySvg = (d, color, size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${Math.round(size * (d.height / d.width))}" viewBox="0 0 ${d.width} ${d.height}">${d.body.replace(/currentColor/g, color)}</svg>`;
+  async function loadIconify(names) {
+    const sets = new Map();
+    for (const n of names) { const [prefix, name] = n.split(':'); if (!icofyData.has(n)) sets.set(prefix, [...(sets.get(prefix) || []), name]); }
+    await Promise.all([...sets].map(async ([prefix, list]) => {
+      try {
+        const r = JSON.parse(await bridge.iconifyGet(`${prefix}.json?icons=${list.join(',')}`));
+        for (const name of list) {
+          let icon = (r.icons || {})[name];
+          const alias = (r.aliases || {})[name];
+          if (!icon && alias) icon = { ...(r.icons || {})[alias.parent], ...alias };
+          if (icon && icon.body) icofyData.set(`${prefix}:${name}`, { body: icon.body, width: icon.width || r.width || 16, height: icon.height || r.height || 16 });
+        }
+      } catch (err) { console.warn('icon set unavailable', prefix, err); }
+    }));
+  }
   async function searchIconify() {
     const q = $('#icofySearch').value.trim();
-    if (q.length < 2) { $('#icofyGrid').innerHTML = ''; return; }
+    if (q.length < 2) { $('#icofyGrid').innerHTML = ''; $('#icofyNote').textContent = t('Type at least two letters to search online.'); return; }
     $('#icofyNote').textContent = t('Searching…');
     try {
-      const r = JSON.parse(await bridge.iconifyGet(`search?query=${encodeURIComponent(q)}&limit=96`));
+      const r = JSON.parse(await bridge.iconifyGet(`search?query=${encodeURIComponent(q).replace(/[!'()*~]/g, '')}&limit=96`));
       const names = (r.icons || []).filter((n) => /^[a-z0-9-]+:[a-z0-9-]+$/.test(n));
-      $('#icofyGrid').innerHTML = names.map((n) => `<button type="button" data-icofy="${n}" title="${n}"><img loading="lazy" alt="" src="https://api.iconify.design/${n.replace(':', '/')}.svg?color=%23e8eaf0&height=22"></button>`).join('');
-      $('#icofyNote').textContent = names.length ? t('{0} result(s). Click one to add it to the slide.', names.length) : t('No icon matches that search.');
-    } catch (err) { $('#icofyNote').textContent = String(err && err.message ? err.message : err); }
+      await loadIconify(names);
+      const ready = names.filter((n) => icofyData.has(n));
+      if ($('#icofySearch').value.trim() !== q) return; // a newer search is already running
+      $('#icofyGrid').innerHTML = ready.map((n) => `<button type="button" data-icofy="${n}" title="${n}">${icofySvg(icofyData.get(n), '#e8eaf0', 22)}</button>`).join('');
+      $('#icofyNote').textContent = ready.length ? t('{0} result(s). Click one, or drag it onto the slide.', ready.length) : t('No icon matches that search.');
+    } catch (err) { $('#icofyNote').textContent = t('The online search did not answer. Check the internet connection and try again.') + `\n${String(err && err.message ? err.message : err).slice(0, 160)}`; }
   }
   $('#icofySearch').addEventListener('input', () => { clearTimeout(searchIconify.timer); searchIconify.timer = setTimeout(searchIconify, 350); });
   $('#icofyGrid').addEventListener('click', guard(async (e) => {
     const b = e.target.closest('[data-icofy]');
     if (!b) return;
-    const name = b.dataset.icofy;
-    const svg = await bridge.iconifyGet(`${name.replace(':', '/')}.svg?color=${encodeURIComponent(iconColor())}&height=512`);
-    if (!svg.trim().startsWith('<svg')) throw new Error(t('That icon could not be downloaded.'));
-    const path = `${studio.dataDir}/Icons/${name.replace(':', '-')}-${iconColor().slice(1)}.svg`;
-    await bridge.writeText(path, svg);
-    const el = M.makeElement('image', { src: path, x: M.BASE.w / 2, y: 1200, w: 360, name });
+    const name = b.dataset.icofy, d = icofyData.get(name);
+    if (!d) throw new Error(t('That icon could not be downloaded.'));
+    const svg = icofySvg(d, iconColor(), 512);
+    let src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+    if (isTauri && studio.dataDir) { src = `${studio.dataDir}/Icons/${name.replace(':', '-')}-${iconColor().slice(1)}.svg`; await bridge.writeText(src, svg); }
+    const el = M.makeElement('image', { src, x: M.BASE.w / 2, y: 1200, w: 360, name });
     await studio.mutate(() => { studio.slide.elements.push(el); });
     await studio.mutate(() => studio.fitToImage(el), { history: false });
     studio.selectedId = el.id;
@@ -427,9 +447,11 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
     await check('iconify', async () => {
       const found = JSON.parse(await bridge.iconifyGet('search?query=home&limit=12')).icons || [];
       if (!found.length) throw new Error('the search returned nothing');
-      const svg = await bridge.iconifyGet(`${found[0].replace(':', '/')}.svg?color=%23ffffff&height=512`);
-      const img = new Image(); img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`; await img.decode();
-      return { results: found.length, first: found[0], width: img.naturalWidth, height: img.naturalHeight };
+      await loadIconify(found);
+      const ready = found.filter((n) => icofyData.has(n));
+      if (!ready.length) throw new Error('no icon data came back');
+      const img = new Image(); img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(icofySvg(icofyData.get(ready[0]), '#ffffff', 512))))}`; await img.decode();
+      return { results: found.length, drawn: ready.length, first: ready[0], width: img.naturalWidth, height: img.naturalHeight };
     });
     await check('capture', async () => {
       const r = await bridge.captureDevices();

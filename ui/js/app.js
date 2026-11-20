@@ -530,6 +530,56 @@ Object.assign(actions, panels.actions);
 const extras = initExtras({ studio, toast, guard, addScreenshots });
 Object.assign(actions, extras.actions);
 
+/* ---------- drag from the library onto the slide ---------- */
+// Pointer-based, not HTML5 drag-and-drop: the desktop shell reserves native drags for dropped files.
+const DRAGGABLE = '[data-sticker], [data-shape], [data-icon-name], [data-icofy]';
+let drag = null, swallowClick = false;
+document.addEventListener('pointerdown', (e) => {
+  const item = e.button === 0 && e.target.closest(DRAGGABLE);
+  if (item && item.closest('#library')) drag = { item, x: e.clientX, y: e.clientY, ghost: null };
+});
+document.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  if (!drag.ghost) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 7) return;
+    const g = drag.item.cloneNode(true);
+    const src = drag.item.querySelector('canvas'), dst = g.querySelector('canvas');
+    if (src && dst) dst.getContext('2d').drawImage(src, 0, 0); // cloneNode does not copy canvas pixels
+    g.className = `${drag.item.className} dragGhost`;
+    document.body.appendChild(g);
+    drag.ghost = g;
+    document.body.classList.add('dragging');
+  }
+  drag.ghost.style.left = `${e.clientX}px`;
+  drag.ghost.style.top = `${e.clientY}px`;
+  const r = $('#canvas').getBoundingClientRect();
+  $('#canvas').classList.toggle('dropTarget', e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom);
+});
+document.addEventListener('pointerup', guard(async (e) => {
+  const d = drag;
+  drag = null;
+  if (!d || !d.ghost) return;
+  d.ghost.remove();
+  document.body.classList.remove('dragging');
+  $('#canvas').classList.remove('dropTarget');
+  swallowClick = true; // the click that follows this pointerup must not add a second copy
+  setTimeout(() => { swallowClick = false; }, 0);
+  const r = $('#canvas').getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom || !view.env) return;
+  const p = canvasPoint(e);
+  const at = { x: Math.round(M.BASE.w / 2 + (p.x - view.env.W / 2) / view.env.sx), y: Math.round(M.BASE.h / 2 + (p.y - view.env.H / 2) / view.env.sy) };
+  // Reuse the item's own click behaviour, then move what it created to where it was dropped.
+  const before = new Set(studio.slide.elements.map((el) => el.id));
+  studio.selectedId = null;
+  setTimeout(() => d.item.click(), 0);
+  for (let i = 0; i < 80; i += 1) {
+    await new Promise((res) => setTimeout(res, 50));
+    const made = studio.slide.elements.find((el) => !before.has(el.id));
+    if (made) { await studio.mutate(() => { made.x = at.x; made.y = at.y; }, { history: false }); studio.selectedId = made.id; studio.emit(); return; }
+  }
+}));
+document.addEventListener('click', (e) => { if (swallowClick && e.target.closest(DRAGGABLE)) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+
 document.addEventListener('click', guard(async (e) => {
   const b = e.target.closest('[data-act]');
   if (b && actions[b.dataset.act]) await actions[b.dataset.act](b);
