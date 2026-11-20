@@ -27,12 +27,29 @@ function toast(msg, isErr = false) {
 const guard = (fn) => async (...a) => { try { return await fn(...a); } catch (err) { console.error(err); toast(String(err && err.message ? err.message : err), true); return undefined; } };
 
 /* ---------- stage ---------- */
+let zoom = 1; // 1 = the slide fits the stage
+function setZoom(next, anchor) {
+  const stage = $('#stage'), before = zoom;
+  zoom = Math.min(4, Math.max(0.25, Math.round(next * 100) / 100));
+  if (zoom === before) return;
+  // Keep the point under the cursor (or the centre) in place while zooming.
+  const r = stage.getBoundingClientRect();
+  const ax = anchor ? anchor.x - r.left : r.width / 2, ay = anchor ? anchor.y - r.top : r.height / 2;
+  const fx = (stage.scrollLeft + ax) / Math.max(1, stage.scrollWidth), fy = (stage.scrollTop + ay) / Math.max(1, stage.scrollHeight);
+  drawStage();
+  stage.scrollLeft = fx * stage.scrollWidth - ax;
+  stage.scrollTop = fy * stage.scrollHeight - ay;
+}
+
 function drawStage() {
   const stage = $('#stage'), canvas = $('#canvas');
   const z = studio.previewSize;
-  const k = Math.min((stage.clientWidth - 64) / z.w, (stage.clientHeight - 84) / z.h);
+  const k = Math.min((stage.clientWidth - 64) / z.w, (stage.clientHeight - 84) / z.h) * zoom;
   const cssW = Math.max(60, Math.floor(z.w * k)), cssH = Math.max(60, Math.floor(z.h * k));
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  // Keep the drawing surface a sane size when zoomed far in.
+  const dpr = Math.min(2, window.devicePixelRatio || 1, 5200 / Math.max(cssW, cssH));
+  $('#zoomLabel').textContent = `${Math.round(zoom * 100)}%`;
+  $('#hint').hidden = zoom > 1; // the tip would float over the slide once it scrolls
   const r = studio.render(canvas, studio.slide, { W: Math.round(cssW * dpr), H: Math.round(cssH * dpr), device: z.device, placeholder: t('Drop a screenshot') });
   canvas.style.width = `${cssW}px`;
   canvas.style.height = `${cssH}px`;
@@ -524,11 +541,55 @@ const actions = {
   export: openExport,
   'export-pick': async () => { const d = await bridge.pickFolder(); if (d) $('#exDir').value = d; },
   'export-run': runExport,
+  'zoom-in': () => setZoom(zoom * 1.25),
+  'zoom-out': () => setZoom(zoom / 1.25),
+  'zoom-fit': () => setZoom(1),
 };
 const panels = initPanels({ studio, toast, guard, getInfo: () => info, addScreenshots, pickImages, confirmDiscard, api: { run: (name) => (actions[name] ? actions[name]() : null) } });
 Object.assign(actions, panels.actions);
 const extras = initExtras({ studio, toast, guard, addScreenshots });
 Object.assign(actions, extras.actions);
+
+/* ---------- zoom ---------- */
+$('#stage').addEventListener('wheel', (e) => {
+  if (!e.ctrlKey && !e.metaKey) return; // plain scrolling pans; pinch or Ctrl/Cmd + wheel zooms
+  e.preventDefault();
+  setZoom(zoom * Math.exp(-e.deltaY * 0.01), { x: e.clientX, y: e.clientY });
+}, { passive: false });
+
+/* ---------- right-click menu ---------- */
+const ctx = $('#ctxMenu');
+function closeCtx() { ctx.hidden = true; }
+function openCtx(e, items) {
+  ctx.innerHTML = items.map((it) => (it === '-' ? '<i></i>' : `<button type="button" data-act="${it[1]}" class="${it[3] || ''}"><span>${esc(t(it[0]))}</span><kbd>${esc(it[2] || '')}</kbd></button>`)).join('');
+  ctx.hidden = false;
+  const w = ctx.offsetWidth, h = ctx.offsetHeight;
+  ctx.style.left = `${Math.max(6, Math.min(e.clientX, window.innerWidth - w - 6))}px`;
+  ctx.style.top = `${Math.max(6, Math.min(e.clientY, window.innerHeight - h - 6))}px`;
+}
+$('#stage').addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const onCanvas = e.target === $('#canvas') || e.target.closest('#sel');
+  let hit = null;
+  if (onCanvas) { const p = canvasPoint(e); hit = hitTest(view.boxes, p.x, p.y); }
+  if (hit || !e.target.closest('#sel')) { studio.selectedId = hit ? hit.id : null; studio.emit(); }
+  const el = studio.selected;
+  const zoomItems = [['Zoom in', 'zoom-in', 'Ctrl +'], ['Zoom out', 'zoom-out', 'Ctrl −'], ['Fit to window', 'zoom-fit', 'Ctrl 0']];
+  if (el) {
+    openCtx(e, [
+      ['Duplicate', 'el-dup', 'Ctrl D'], ['Bring to front', 'el-front', ']'], ['Send to back', 'el-back', '['], ['Centre on the slide', 'el-center', ''],
+      ...(el.type === 'image' ? [['Remove background', 'el-cutout', '']] : []),
+      ...(el.type === 'image' || el.type === 'screenshot' ? [['Replace image…', 'el-image', '']] : []),
+      '-', ['Delete', 'el-del', 'Del', 'danger'],
+    ]);
+  } else {
+    openCtx(e, [['Add text', 'add-text', 'T'], ['Add screenshot', 'add-screenshot', 'S'], ['Add logo or image', 'add-logo', 'L'], '-', ['Duplicate slide', 'slide-dup', ''], ['New slide', 'slide-add', 'Ctrl Enter'], '-', ...zoomItems]);
+  }
+});
+document.addEventListener('pointerdown', (e) => { if (!ctx.hidden && !e.target.closest('#ctxMenu')) closeCtx(); }, true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtx(); }, true);
+window.addEventListener('blur', closeCtx);
+ctx.addEventListener('click', () => setTimeout(closeCtx, 0));
 
 /* ---------- drag from the library onto the slide ---------- */
 // Pointer-based, not HTML5 drag-and-drop: the desktop shell reserves native drags for dropped files.
@@ -593,11 +654,14 @@ $('#langSel').addEventListener('change', (e) => { studio.lang = e.target.value; 
 
 document.addEventListener('keydown', guard(async (e) => {
   const mod = e.metaKey || e.ctrlKey;
-  const editing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '') || document.querySelector('dialog[open]');
+  const editing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '') || document.querySelector('dialog[open]:not(.chat)');
   if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); await saveProject(e.shiftKey); return; }
   if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); await actions.projects(); return; }
   if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); await actions.palette(); return; }
-  if (document.querySelector('dialog[open]')) return;
+  if (document.querySelector('dialog[open]:not(.chat)')) return;
+  if (mod && (e.key === '=' || e.key === '+')) { e.preventDefault(); setZoom(zoom * 1.25); return; }
+  if (mod && e.key === '-') { e.preventDefault(); setZoom(zoom / 1.25); return; }
+  if (mod && e.key === '0') { e.preventDefault(); setZoom(1); return; }
   if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); await actions.new(); return; }
   if (mod && e.key.toLowerCase() === 'j') { e.preventDefault(); await actions.chat(); return; }
   if (mod && e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); await actions.capture(); return; }

@@ -269,3 +269,12 @@ body.dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; 
 #canvas.dropTarget { outline: 2px dashed var(--accent); outline-offset: 6px; }
 #library [data-sticker], #library [data-shape], #library [data-icon-name], #library [data-icofy] { cursor: grab; touch-action: none; }
 .icofy .iconGrid svg { width: 22px; height: 22px; }
+.stage { overflow: auto; align-items: flex-start; justify-content: flex-start; }
+.canvas-wrap { margin: auto; flex: none; }
+.center { position: relative; }
+.zoomBar { position: absolute; top: 12px; inset-inline-end: 14px; display: flex; align-items: center; gap: 2px; padding: 3px; background: var(--s2); border: 1px solid var(--line2); border-radius: 10px; z-index: 5; }
+.zoomBar button { min-width: 28px; padding: 3px 7px; font-size: 12px; } #zoomLabel { min-width: 50px; }
+.ctxMenu { position: fixed; z-index: 200; min-width: 210px; padding: 5px; background: var(--s2); border: 1px solid var(--line2); border-radius: 12px; box-shadow: var(--shadow); }
+.ctxMenu button { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 18px; background: none; border: 0; padding: 7px 10px; border-radius: 8px; text-align: start; }
+.ctxMenu button:hover { background: var(--s3); } .ctxMenu button.danger { color: var(--danger); }
+.ctxMenu kbd { color: var(--faint); font-size: 11px; background: none; border: 0; } .ctxMenu i { display: block; height: 1px; background: var(--line); margin: 4px 6px; }

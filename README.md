@@ -74,6 +74,7 @@ Agents get the same features through MCP: `list_devices`, `capture_device`, `set
 
 ## New in 0.8
 
+- **Right-click menu, zoom and drag from the library.** Right-click an element for duplicate, order, centre and delete; pinch or `Ctrl` + scroll (or `Ctrl +` / `Ctrl −` / `Ctrl 0`) to zoom; drag components and icons from the side panel onto the slide.
 - **Design assistant.** Press `Ctrl+J` and ask in plain words: "write a stronger headline", "try a tilted layout", "make it dark", "add a rating badge", "translate everything to Arabic". The local model answers and the app carries out the change as one undo step. It uses the built-in model, or your own Ollama / LM Studio model if you set one (a larger model gives noticeably better results).
 - **Diagnostics.** *Run diagnostics* in the command search checks background removal, online icons, device capture, the local AI and updates, and writes `selftest-report.json` to `Documents/Severus Shot`.
 

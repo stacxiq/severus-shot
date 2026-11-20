@@ -83,6 +83,7 @@
     </div>
   </aside>
   <section class="center">
+        <div class="zoomBar" data-no-i18n><button type="button" class="ghost icon-only" data-act="zoom-out" title="Zoom out (Ctrl −)">−</button><button type="button" class="ghost" id="zoomLabel" data-act="zoom-fit" title="Fit to window (Ctrl 0)">100%</button><button type="button" class="ghost icon-only" data-act="zoom-in" title="Zoom in (Ctrl +)">+</button></div>
     <div class="stage" id="stage">
       <div class="canvas-wrap" id="wrap" dir="ltr">
         <canvas id="canvas"></canvas>
@@ -91,7 +92,7 @@
           <i class="rot" data-h="rot"></i>
         </div>
       </div>
-      <div class="hint" id="hint"><span>Drop screenshots anywhere · drag to move · corners resize · top dot rotates</span></div>
+      <div class="hint" id="hint"><span>Drop screenshots anywhere · drag to move · corners resize · right-click for more · pinch or Ctrl + scroll to zoom</span></div>
     </div>
     <div class="film">
       <div id="thumbs" data-no-i18n></div>
@@ -185,6 +186,8 @@
     <div class="actions"><button value="cancel" class="primary">Done</button></div>
   </form>
 </dialog>
+
+<div id="ctxMenu" class="ctxMenu" hidden></div>
 
 <dialog id="chatDlg" class="chat">
   <form method="dialog" class="chatBox">
