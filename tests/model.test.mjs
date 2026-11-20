@@ -366,3 +366,24 @@ test('requests are understood without the model, in English and Arabic', async (
   const ai = { n: 0, async chat() { this.n += 1; return this.n === 1 ? 'Say what your app does' : '"Dinner in minutes."\nextra'; } };
   assert.equal(await writeCaption(ai, 'set_title', 'shorter', { lang: 'en', project: 'x', title: 'Say what your app does', subtitle: '' }), 'Dinner in minutes');
 });
+
+import { quadMapper } from '../ui/js/render.js';
+test('studio 3D scenes carry a locked picture and a screen pinned to four corners', () => {
+  const ids = Object.keys(M.DESIGNS).filter((id) => M.TEMPLATE_INFO[id].cat === 'studio');
+  assert.ok(ids.length >= 12, `only ${ids.length} scenes`);
+  for (const id of ids) {
+    const slide = M.makeSlide(id, undefined, { src: '/shot.png' });
+    const scene = slide.elements.find((e) => e.type === 'image'), screen = slide.elements.find((e) => e.type === 'screenshot');
+    assert.ok(scene.locked && scene.src.startsWith('builtin:scenes/') && scene.w === 2200, id);
+    assert.ok(screen.locked && screen.quad.length === 4 && screen.src === '/shot.png', id);
+    // corners run clockwise from the top-left and stay on the slide
+    const [a, b, c, d] = screen.quad.map(([x, y]) => [x + screen.x, y + screen.y]);
+    assert.ok(a[0] < b[0] && d[0] < c[0] && a[1] < d[1] && b[1] < c[1], id);
+    for (const [x, y] of [a, b, c, d]) assert.ok(x > 0 && x < M.BASE.w && y > 0 && y < M.BASE.h, `${id} corner ${x},${y}`);
+    const back = M.sanitizeProject({ ...M.newProject('x'), slides: [slide] }).slides[0].elements.find((e) => e.type === 'screenshot');
+    assert.deepEqual(back.quad, screen.quad, id);
+  }
+  const map = quadMapper([[10, 20], [110, 30], [100, 230], [0, 200]]);
+  assert.deepEqual(map(0, 0), [10, 20]);
+  assert.ok(Math.abs(map(1, 1)[0] - 100) < 1e-6 && Math.abs(map(1, 1)[1] - 230) < 1e-6);
+});

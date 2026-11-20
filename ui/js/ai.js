@@ -250,7 +250,7 @@ export function parseChatReply(text) {
 export function chatContext(studio, M) {
   const texts = studio.slide.elements.filter((e) => e.type === 'text');
   const say = (el) => (el ? String((el.text || {})[studio.lang] || Object.values(el.text || {})[0] || '') : '');
-  return { lang: studio.lang, project: studio.project.name, slide: studio.slideIndex + 1, slides: studio.project.slides.length, title: say(texts[0]), subtitle: say(texts[1]), looks: [...Object.keys(M.LOOKS), ...Object.keys(M.THEMES)] };
+  return { lang: studio.lang, project: studio.project.name, slide: studio.slideIndex + 1, slides: studio.project.slides.length, title: say(texts[0]), subtitle: say(texts[1]), looks: [...Object.keys(M.LOOKS).filter((k) => !k.startsWith('studio3d-')), ...Object.keys(M.THEMES)] };
 }
 
 const COLOR_NAMES = { blue: '#2563eb', navy: '#0f1e4d', red: '#dc2626', green: '#16a34a', yellow: '#facc15', orange: '#f97316', pink: '#f472b6', purple: '#7c3aed', violet: '#7c3aed', black: '#0b0b0d', white: '#ffffff', grey: '#6b7280', gray: '#6b7280', teal: '#0d9488', beige: '#f3e7d3', cream: '#f6f0e4', brown: '#7c4a21', gold: '#d4a017', cyan: '#06b6d4', 'light blue': '#bfdbfe', 'dark blue': '#0f1e4d', 'pastel blue': '#bfdbfe', 'sky blue': '#7dd3fc', 'dark green': '#14532d', 'light green': '#bbf7d0' };

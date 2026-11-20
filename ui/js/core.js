@@ -100,7 +100,9 @@ export class Studio {
     if (!src || this.images.has(src) || this.failedImages.has(src)) return;
     try {
       let url = src;
-      if (!/^(data:|blob:|https?:)/.test(src)) url = `data:${mimeOf(src)};base64,${await bridge.readFileB64(src)}`;
+      // "builtin:" pictures ship inside the app (the rendered 3D scenes), so projects that use them stay portable.
+      if (src.startsWith('builtin:')) url = new URL(`../${src.slice(8)}`, import.meta.url).href;
+      else if (!/^(data:|blob:|https?:)/.test(src)) url = `data:${mimeOf(src)};base64,${await bridge.readFileB64(src)}`;
       const img = new Image();
       img.src = url;
       await img.decode();

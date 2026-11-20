@@ -38,7 +38,10 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
     for (const e of entries) {
       if (!e.isIntersecting) continue;
       tplSeen.unobserve(e.target);
-      slideThumb(e.target.querySelector('canvas'), M.makeSlide(e.target.dataset.tpl, tplTheme, tplCarry), 130);
+      const card = e.target, slide = M.makeSlide(card.dataset.tpl, tplTheme, tplCarry);
+      // Scene templates carry a bundled picture; load it before drawing the thumbnail.
+      const pics = slide.elements.map((x) => x.src).filter((x) => x && String(x).startsWith('builtin:'));
+      Promise.all(pics.map((x) => studio.loadImage(x))).then(() => slideThumb(card.querySelector('canvas'), slide, 130));
     }
   }, { rootMargin: '400px' });
   function drawTemplates() {

@@ -9,8 +9,8 @@ LOG = open(os.path.join(OUT, "log.txt"), "a")
 def log(*a):
     LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 
-W, H = 1320, 2868
-SCALE = float(os.environ.get("SEVERUS_SCALE", "50"))  # percent of full size
+W, H = 2200, 2868   # wider than a phone slide, so tablet sizes have picture at the sides
+SCALE = float(os.environ.get("SEVERUS_SCALE", "100"))
 PW, PH, PD, PR = 0.715, 1.496, 0.085, 0.115           # phone: width, height, depth, corner radius
 
 def mat(name, color, rough=0.5, metal=0.0, sheen=0.0, emit=None):
@@ -50,10 +50,10 @@ def build_phone(body_color):
     body.data.materials.append(mat("Body", body_color, rough=0.28, metal=0.9))
     inset = 0.022
     glass = rounded_rect("PhoneGlass", PW - inset, PH - inset, PR - inset/2, 0, z0=PD + 0.0008)
-    glass.data.materials.append(mat("Glass", (0.012, 0.013, 0.016), rough=0.08))
+    glass.data.materials.append(mat("Glass", (0.01, 0.01, 0.012), rough=0.25))
     sw, sh = PW - 0.06, PH - 0.06
     screen = rounded_rect("PhoneScreen", sw, sh, PR - 0.03, 0, z0=PD + 0.0016)
-    screen.data.materials.append(mat("Screen", (0.03, 0.032, 0.04), rough=0.12))
+    screen.data.materials.append(mat("Screen", (0.012, 0.012, 0.015), rough=0.55))
     root = bpy.data.objects.new("Phone", None); bpy.context.scene.collection.objects.link(root)
     for ob in (body, glass, screen): ob.parent = root
     return root, (sw, sh)
@@ -78,7 +78,7 @@ def clear():
 def setup_render(scene):
     scene.render.resolution_x, scene.render.resolution_y = W, H
     scene.render.resolution_percentage = int(SCALE)
-    scene.render.image_settings.file_format = "JPEG"; scene.render.image_settings.quality = 90
+    scene.render.image_settings.file_format = "JPEG"; scene.render.image_settings.quality = 86
     try:
         scene.render.engine = "CYCLES"; scene.cycles.samples = 96; scene.cycles.use_denoising = True
         try:
@@ -89,60 +89,92 @@ def setup_render(scene):
         except Exception as e: log("gpu not used:", e)
     except Exception as e:
         log("cycles unavailable:", e)
-    try: scene.view_settings.view_transform = "Standard"
-    except Exception as e: log("view transform:", e)
 
+def P(id, wall, floor, prop, pc, body=(0.04, 0.04, 0.045), lean=(80, 0, -14), x=0.0, pc2=(0.9, 0.9, 0.95)):
+    return dict(id=id, wall=wall, floor=floor, prop=prop, prop_color=pc, prop2=pc2, body=body, lean=lean, x=x)
+
+SILVER = (0.86, 0.86, 0.88)
 SCENES = [
-    dict(id="velvet-green", wall=(0.05, 0.62, 0.12), floor=(0.03, 0.30, 0.07), prop="cushion", prop_color=(0.03, 0.22, 0.06), body=(0.05, 0.05, 0.055), lean=(72, 0, -24), pos=(0.25, 0.0, 0.0)),
-    dict(id="clay-coral", wall=(0.98, 0.45, 0.36), floor=(0.86, 0.33, 0.28), prop="podium", prop_color=(0.98, 0.62, 0.52), body=(0.92, 0.9, 0.88), lean=(84, 0, 12), pos=(0.0, 0.0, 0.32)),
-    dict(id="midnight-spheres", wall=(0.05, 0.07, 0.2), floor=(0.03, 0.04, 0.12), prop="spheres", prop_color=(0.35, 0.4, 0.95), body=(0.05, 0.05, 0.06), lean=(80, 0, -14), pos=(0.0, 0.0, 0.0)),
+    P("velvet-green", (0.03, 0.42, 0.10), (0.02, 0.25, 0.06), "cushion", (0.02, 0.16, 0.05), lean=(76, 0, -20), x=0.18),
+    P("coral-podium", (0.93, 0.36, 0.28), (0.80, 0.26, 0.21), "podium", (0.97, 0.55, 0.45), body=SILVER, lean=(84, 0, 10)),
+    P("midnight-spheres", (0.03, 0.045, 0.16), (0.02, 0.03, 0.10), "spheres", (0.22, 0.27, 0.85), lean=(80, 0, -14)),
+    P("lilac-arch", (0.60, 0.50, 0.88), (0.48, 0.38, 0.76), "arch", (0.80, 0.72, 0.98), body=SILVER, lean=(84, 0, 8)),
+    P("sand-steps", (0.84, 0.72, 0.55), (0.72, 0.60, 0.44), "steps", (0.92, 0.82, 0.66), lean=(82, 0, -12), x=0.12),
+    P("ocean-capsules", (0.04, 0.34, 0.62), (0.03, 0.24, 0.48), "capsules", (0.30, 0.72, 0.95), lean=(80, 0, 16)),
+    P("lemon-ring", (0.98, 0.80, 0.10), (0.88, 0.68, 0.06), "ring", (0.08, 0.08, 0.09), lean=(82, 0, -10)),
+    P("blush-cubes", (0.96, 0.66, 0.72), (0.88, 0.52, 0.60), "cubes", (0.99, 0.84, 0.86), body=SILVER, lean=(80, 0, 14)),
+    P("forest-cushion", (0.04, 0.20, 0.14), (0.03, 0.13, 0.09), "cushion", (0.70, 0.52, 0.16), lean=(76, 0, -18), x=0.18),
+    P("noir-podium", (0.025, 0.025, 0.03), (0.015, 0.015, 0.018), "podium", (0.10, 0.10, 0.12), lean=(84, 0, -8), pc2=(0.78, 0.95, 0.20)),
+    P("sky-spheres", (0.52, 0.74, 0.96), (0.40, 0.62, 0.88), "spheres", (0.98, 0.98, 1.0), body=SILVER, lean=(80, 0, 12)),
+    P("terracotta-arch", (0.70, 0.30, 0.18), (0.56, 0.22, 0.13), "arch", (0.90, 0.60, 0.42), lean=(84, 0, -8)),
+    P("mint-steps", (0.56, 0.90, 0.76), (0.42, 0.78, 0.64), "steps", (0.82, 0.98, 0.90), body=SILVER, lean=(82, 0, 12), x=-0.12),
+    P("royal-ring", (0.22, 0.12, 0.55), (0.15, 0.08, 0.40), "ring", (0.98, 0.72, 0.16), lean=(82, 0, 10)),
+    P("cream-capsules", (0.93, 0.89, 0.80), (0.84, 0.79, 0.69), "capsules", (0.88, 0.36, 0.20), lean=(80, 0, -16)),
+    P("slate-cubes", (0.14, 0.18, 0.24), (0.09, 0.12, 0.17), "cubes", (0.22, 0.60, 0.92), lean=(80, 0, -14)),
 ]
+
+def soften(ob, bevel=0.0, seg=6):
+    if bevel:
+        m = ob.modifiers.new("bevel", "BEVEL"); m.width = bevel; m.segments = seg
+    for p in ob.data.polygons: p.use_smooth = True
+    return ob
 
 def build(cfg):
     clear(); scene = bpy.context.scene; setup_render(scene)
     world = scene.world or bpy.data.worlds.new("World"); scene.world = world; world.use_nodes = True
     bg = world.node_tree.nodes.get("Background")
-    if bg: bg.inputs[0].default_value = (*cfg["wall"], 1.0); bg.inputs[1].default_value = 0.35
-    add("primitive_plane_add", "Floor", mat("Floor", cfg["floor"], rough=0.55), size=40, location=(0, 0, 0))
-    wall = add("primitive_plane_add", "Wall", mat("Wall", cfg["wall"], rough=0.8), size=40, location=(0, 4.5, 0)); wall.rotation_euler = (math.radians(90), 0, 0)
+    if bg: bg.inputs[0].default_value = (0.85, 0.86, 0.9, 1.0); bg.inputs[1].default_value = 0.45
+    add("primitive_plane_add", "Floor", mat("Floor", cfg["floor"], rough=0.6), size=60, location=(0, 0, 0))
+    wall = add("primitive_plane_add", "Wall", mat("Wall", cfg["wall"], rough=0.9), size=60, location=(0, 5.0, 0)); wall.rotation_euler = (math.radians(90), 0, 0)
     phone, (sw, sh) = build_phone(cfg["body"])
     rx, ry, rz = (math.radians(v) for v in cfg["lean"])
     phone.rotation_euler = (rx, ry, rz)
-    px, py, pz = cfg["pos"]
-    # stand the phone on its bottom edge at the chosen spot
-    phone.location = (px, py, pz + (PH / 2) * math.sin(rx) + 0.002)
-    pm = mat("Prop", cfg["prop_color"], rough=0.75, sheen=1.0)
-    if cfg["prop"] == "cushion":
-        c = add("primitive_cube_add", "Cushion", pm, size=1, location=(-0.62, 0.42, 0.34)); c.scale = (1.15, 0.9, 0.68)
-        mod = c.modifiers.new("bevel", "BEVEL"); mod.width = 0.3; mod.segments = 12
-        for p in c.data.polygons: p.use_smooth = True
-    elif cfg["prop"] == "podium":
-        add("primitive_cylinder_add", "Podium", pm, radius=0.72, depth=0.32, vertices=96, location=(0, 0, 0.16))
-        add("primitive_uv_sphere_add", "Ball", mat("Ball", (1.0, 0.86, 0.5), rough=0.35), radius=0.16, location=(0.78, -0.35, 0.16))
-        for ob in bpy.data.objects:
-            if ob.type == "MESH" and ob.name in ("Podium", "Ball"):
-                for p in ob.data.polygons: p.use_smooth = True
+    pm = mat("Prop", cfg["prop_color"], rough=0.7, sheen=1.0)
+    pm2 = mat("Prop2", cfg["prop2"], rough=0.3)
+    base = 0.0; kind = cfg["prop"]; side = -1 if cfg["lean"][2] <= 0 else 1   # props sit on the side the phone turns away from
+    if kind == "cushion":
+        c = add("primitive_cube_add", "Cushion", pm, size=1, location=(-0.50 * 1 + cfg["x"] - 0.25, 0.46, 0.30)); c.scale = (0.95, 0.85, 0.60); soften(c, 0.28, 12)
+    elif kind == "podium":
+        base = 0.26
+        soften(add("primitive_cylinder_add", "Podium", pm, radius=0.62, depth=base, vertices=128, location=(cfg["x"], 0.05, base / 2)), 0.02, 3)
+        soften(add("primitive_uv_sphere_add", "Ball", pm2, radius=0.12, segments=64, ring_count=32, location=(0.58 * -side, -0.42, 0.12)))
+    elif kind == "spheres":
+        for i, (x, y, r, m) in enumerate(((-0.56 * side, 0.55, 0.30, pm), (0.60 * side, 0.35, 0.17, pm2), (0.50 * side, -0.40, 0.09, pm))):
+            soften(add("primitive_uv_sphere_add", f"Sphere{i}", m, radius=r, segments=64, ring_count=32, location=(x, y, r)))
+    elif kind == "arch":
+        a = add("primitive_cylinder_add", "Arch", pm, radius=0.66, depth=0.22, vertices=128, location=(cfg["x"], 0.75, 0.95)); a.rotation_euler = (math.radians(90), 0, 0); soften(a, 0.015, 3)
+        b = add("primitive_cube_add", "ArchBase", pm, size=1, location=(cfg["x"], 0.75, 0.475)); b.scale = (1.32, 0.22, 0.95); soften(b, 0.015, 3)
+        soften(add("primitive_uv_sphere_add", "Ball", pm2, radius=0.11, segments=64, ring_count=32, location=(0.56 * -side, -0.35, 0.11)))
+    elif kind == "steps":
+        for i, (w, h) in enumerate(((1.25, 0.14), (0.95, 0.28), (0.66, 0.42))):
+            s = add("primitive_cube_add", f"Step{i}", pm, size=1, location=(-0.30 * side, 0.60 + 0.16 * i, h / 2)); s.scale = (w, 0.5, h); soften(s, 0.02, 3)
+        soften(add("primitive_uv_sphere_add", "Ball", pm2, radius=0.10, segments=64, ring_count=32, location=(0.55 * side, -0.35, 0.10)))
+    elif kind == "capsules":
+        for i, (x, y, r, l, rot) in enumerate(((-0.52 * side, 0.50, 0.17, 0.75, 25), (0.55 * side, 0.30, 0.11, 0.45, -35))):
+            c = add("primitive_cube_add", f"Capsule{i}", pm if i == 0 else pm2, size=1, location=(x, y, r)); c.scale = (l, 2 * r, 2 * r); c.rotation_euler = (0, 0, math.radians(rot)); soften(c, r * 0.98, 16)
+    elif kind == "ring":
+        t = add("primitive_torus_add", "Ring", pm, major_radius=0.58, minor_radius=0.075, major_segments=128, minor_segments=32, location=(cfg["x"], 0.70, 0.66)); t.rotation_euler = (math.radians(90), 0, 0); soften(t)
+        soften(add("primitive_uv_sphere_add", "Ball", pm2, radius=0.12, segments=64, ring_count=32, location=(0.56 * -side, -0.38, 0.12)))
     else:
-        for i, (x, y, r) in enumerate(((-0.75, 0.5, 0.32), (0.78, 0.3, 0.2), (0.55, -0.45, 0.11))):
-            s = add("primitive_uv_sphere_add", f"Sphere{i}", pm if i != 1 else mat("Glossy", (0.9, 0.9, 1.0), rough=0.1, metal=1.0), radius=r, location=(x, y, r), segments=64, ring_count=32)
-            for p in s.data.polygons: p.use_smooth = True
+        for i, (x, y, sz, rot) in enumerate(((-0.56 * side, 0.50, 0.44, 18), (0.58 * side, 0.36, 0.26, -24), (-0.48 * side, -0.42, 0.15, 40))):
+            c = add("primitive_cube_add", f"Cube{i}", pm if i != 1 else pm2, size=sz, location=(x, y, sz / 2)); c.rotation_euler = (0, 0, math.radians(rot)); soften(c, sz * 0.08, 4)
+    phone.location = (cfg["x"], 0.0, base + (PH / 2) * math.sin(rx) + 0.002)
     bpy.context.view_layer.update()
-    area_light("Key", (-2.6, -3.2, 4.2), (0, 0, 0.8), 900, 3.5)
-    area_light("Fill", (3.0, -2.0, 1.6), (0, 0, 0.7), 260, 4.0)
-    area_light("Rim", (0.5, 3.0, 3.0), (0, 0, 0.9), 420, 2.0, cfg["wall"])
-    cam_data = bpy.data.cameras.new("Cam"); cam_data.lens = 62
+    area_light("Key", (-2.4, -3.6, 4.6), (0, 0, 0.8), 520, 4.0)
+    area_light("Fill", (3.2, -2.4, 1.8), (0, 0, 0.7), 150, 5.0)
+    area_light("Rim", (0.8, 3.2, 3.2), (0, 0, 0.9), 240, 2.5)
+    cam_data = bpy.data.cameras.new("Cam"); cam_data.lens = 50
     cam = bpy.data.objects.new("Cam", cam_data); scene.collection.objects.link(cam); scene.camera = cam
-    cam.location = (0.0, -5.6, 1.75)
-    cam.rotation_euler = (Vector((0.0, 0.0, 1.02)) - cam.location).to_track_quat("-Z", "Y").to_euler()
+    cam.location = (0.0, -4.9, 1.30)
+    cam.rotation_euler = (Vector((0.0, 0.0, 1.36)) - cam.location).to_track_quat("-Z", "Y").to_euler()
     bpy.context.view_layer.update()
-    # where the four screen corners land in the picture (0..1 from the top-left)
     z = PD + 0.0016; corners = []
     for lx, ly in ((-sw/2, sh/2), (sw/2, sh/2), (sw/2, -sh/2), (-sw/2, -sh/2)):
         co = world_to_camera_view(scene, cam, phone.matrix_world @ Vector((lx, ly, z)))
         corners.append([round(co.x, 5), round(1 - co.y, 5)])
     path = os.path.join(OUT, cfg["id"] + ".jpg"); scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
-    return dict(id=cfg["id"], image=os.path.basename(path), screen=corners, screenAspect=round(sw / sh, 5), radius=round((PR - 0.03) / sw, 4))
+    return dict(id=cfg["id"], image=os.path.basename(path), screen=corners, screenAspect=round(sw / sh, 5), radius=round((PR - 0.03) / sw, 4), prop=cfg["prop"])
 
 def main():
     log("start", bpy.app.version_string, "scale", SCALE)

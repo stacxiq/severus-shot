@@ -183,7 +183,80 @@ export function screenshotBox(el, env, opts) {
   return { w, h, frame };
 }
 
+// ---- perspective: a picture mapped onto four corners (the phone screen in a rendered 3D scene) ----
+// Maps the unit square onto the quad p0..p3 (top-left, top-right, bottom-right, bottom-left).
+export function quadMapper(p) {
+  const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = p;
+  const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+  const den = dx1 * dy2 - dx2 * dy1 || 1e-9;
+  const g = (dx3 * dy2 - dx2 * dy3) / den, h = (dx1 * dy3 - dx3 * dy1) / den;
+  const a = x1 - x0 + g * x1, b = x3 - x0 + h * x3, d = y1 - y0 + g * y1, e = y3 - y0 + h * y3;
+  return (u, v) => { const w = g * u + h * v + 1; return [(a * u + b * v + x0) / w, (d * u + e * v + y0) / w]; };
+}
+
+function drawQuadImage(ctx, img, pts, radius) {
+  const map = quadMapper(pts), N = 14;
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  // Crop the picture to the screen's shape (cover), measured along the quad's own edges.
+  const len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const aspect = ((len(pts[0], pts[1]) + len(pts[3], pts[2])) / 2) / (((len(pts[0], pts[3]) + len(pts[1], pts[2])) / 2) || 1);
+  let sw = iw, sh = ih;
+  if (iw / ih > aspect) sw = ih * aspect; else sh = iw / aspect;
+  const sx0 = (iw - sw) / 2, sy0 = (ih - sh) / 2;
+  ctx.save();
+  // Rounded screen corners, carried through the same mapping.
+  const r = Math.min(0.5, Math.max(0, radius)), ry = r * aspect;
+  ctx.beginPath();
+  const corner = (cx, cy, a0) => { for (let i = 0; i <= 8; i += 1) { const a = a0 + (Math.PI / 2) * (i / 8); const [x, y] = map(cx + r * Math.cos(a), cy + ry * Math.sin(a)); ctx.lineTo(x, y); } };
+  corner(1 - r, ry, -Math.PI / 2); corner(1 - r, 1 - ry, 0); corner(r, 1 - ry, Math.PI / 2); corner(r, ry, Math.PI);
+  ctx.closePath();
+  ctx.clip();
+  ctx.imageSmoothingQuality = 'high';
+  // Small triangles, each drawn with a plain affine transform, add up to a perspective-correct picture.
+  const tri = (u0, v0, u1, v1, u2, v2) => {
+    const [ax, ay] = map(u0, v0), [bx, by] = map(u1, v1), [cx, cy] = map(u2, v2);
+    const X0 = sx0 + u0 * sw, Y0 = sy0 + v0 * sh, X1 = sx0 + u1 * sw, Y1 = sy0 + v1 * sh, X2 = sx0 + u2 * sw, Y2 = sy0 + v2 * sh;
+    const det = (X1 - X0) * (Y2 - Y0) - (X2 - X0) * (Y1 - Y0);
+    if (!det) return;
+    const m11 = ((bx - ax) * (Y2 - Y0) - (cx - ax) * (Y1 - Y0)) / det, m12 = ((cx - ax) * (X1 - X0) - (bx - ax) * (X2 - X0)) / det;
+    const m21 = ((by - ay) * (Y2 - Y0) - (cy - ay) * (Y1 - Y0)) / det, m22 = ((cy - ay) * (X1 - X0) - (by - ay) * (X2 - X0)) / det;
+    // Grow each triangle a touch around its centre so no hairline gaps show between neighbours.
+    const mx = (ax + bx + cx) / 3, my = (ay + by + cy) / 3, grow = (px, py) => { const dx = px - mx, dy = py - my, l = Math.hypot(dx, dy) || 1; return [px + (dx / l) * 0.7, py + (dy / l) * 0.7]; };
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(...grow(ax, ay)); ctx.lineTo(...grow(bx, by)); ctx.lineTo(...grow(cx, cy)); ctx.closePath();
+    ctx.clip();
+    ctx.transform(m11, m21, m12, m22, ax - m11 * X0 - m12 * Y0, ay - m21 * X0 - m22 * Y0);
+    ctx.drawImage(img, 0, 0);
+    ctx.restore();
+  };
+  for (let j = 0; j < N; j += 1) for (let i = 0; i < N; i += 1) {
+    const u0 = i / N, u1 = (i + 1) / N, v0 = j / N, v1 = (j + 1) / N;
+    tri(u0, v0, u1, v0, u0, v1); tri(u1, v0, u1, v1, u0, v1);
+  }
+  ctx.restore();
+}
+
+// A screenshot pinned to four corners: `quad` holds the corners relative to the element's centre, in design units.
+function drawQuadScreenshot(ctx, el, env, opts) {
+  const pts = el.quad.map(([x, y]) => [x * env.s, y * env.s]);
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const img = opts.getImage(el.src);
+  if (img) drawQuadImage(ctx, img, pts, el.quadRadius || 0);
+  else if (!opts.final) {
+    ctx.save();
+    ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `600 ${Math.max(9, (Math.max(...xs) - Math.min(...xs)) * 0.07)}px ${opts.uiFont || 'Inter, sans-serif'}`;
+    ctx.fillText(opts.placeholder || 'Drop a screenshot', 0, 0);
+    ctx.restore();
+  }
+  return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+}
+
 function drawScreenshot(ctx, el, env, opts) {
+  if (el.quad) return drawQuadScreenshot(ctx, el, env, opts);
   const { w, h, frame } = screenshotBox(el, env, opts);
   const img = opts.getImage((frame === 'tablet' && el.srcTablet) || el.src);
   const x = -w / 2, y = -h / 2;
@@ -918,9 +991,9 @@ export function renderSlide(ctx, project, slide, options) {
     const cx = toCanvasX(env, el.x) + (m ? m.dx * env.s : 0), cy = toCanvasY(env, el.y) + (m ? m.dy * env.s : 0);
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate(((el.rotation + (m && m.rot ? m.rot : 0)) * Math.PI) / 180);
+    if (!el.quad) ctx.rotate(((el.rotation + (m && m.rot ? m.rot : 0)) * Math.PI) / 180);
     // A shear makes a flat element read as if it were turned in space (isometric mock-ups).
-    if (el.skewX || el.skewY) ctx.transform(1, Math.tan(((el.skewY || 0) * Math.PI) / 180), Math.tan(((el.skewX || 0) * Math.PI) / 180), 1, 0, 0);
+    if (!el.quad && (el.skewX || el.skewY)) ctx.transform(1, Math.tan(((el.skewY || 0) * Math.PI) / 180), Math.tan(((el.skewX || 0) * Math.PI) / 180), 1, 0, 0);
     if (m && (m.scale !== 1 || (m.sx !== undefined && m.sx !== 1))) ctx.scale(m.scale * (m.sx === undefined ? 1 : m.sx), m.scale);
     ctx.globalAlpha = el.opacity * (m ? m.alpha : 1);
     let box;
@@ -931,7 +1004,7 @@ export function renderSlide(ctx, project, slide, options) {
     else if (el.type === 'icon') box = drawIcon(ctx, el, env, opts);
     else box = drawShape(ctx, el, env);
     ctx.restore();
-    boxes.push({ id: el.id, cx, cy, w: box.w, h: box.h, rot: el.rotation });
+    boxes.push({ id: el.id, cx, cy, w: box.w, h: box.h, rot: el.quad ? 0 : el.rotation });
   });
   ctx.restore();
   return { boxes, env };

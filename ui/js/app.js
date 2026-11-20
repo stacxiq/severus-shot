@@ -340,7 +340,7 @@ $('#canvas').addEventListener('pointerdown', (e) => {
   studio.selectedId = hit ? hit.id : null;
   studio.emit();
   const el = studio.selected;
-  if (!el) return;
+  if (!el || el.locked) return; // locked pieces (a 3D scene and its screen) can be selected but not dragged
   const x0 = el.x, y0 = el.y;
   startGesture(e, (ev) => {
     const q = canvasPoint(ev);
@@ -356,6 +356,7 @@ for (const h of document.querySelectorAll('#sel [data-h]')) {
   h.addEventListener('pointerdown', (e) => {
     e.stopPropagation();
     e.preventDefault();
+    if (studio.selected && studio.selected.locked) return;
     const el = studio.selected;
     const box = view.boxes.find((b) => b.id === studio.selectedId);
     if (!el || !box) return;

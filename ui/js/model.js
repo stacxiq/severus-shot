@@ -1,3 +1,4 @@
+import { SCENES3D, SCENE_SIZE } from './scenes.js';
 // Project model: pure data + mutations. No DOM access, so it also runs in Node tests.
 
 export const BASE = { w: 1320, h: 2868 };
@@ -264,6 +265,7 @@ export function makeElement(type, props = {}) {
     w: num(props.w, 600),
     h: num(props.h, 600),
     rotation: num(props.rotation, 0),
+    ...(props.locked ? { locked: true } : {}),
     skewX: Math.max(-50, Math.min(50, num(props.skewX, 0))),
     skewY: Math.max(-50, Math.min(50, num(props.skewY, 0))),
     opacity: Math.min(1, Math.max(0, num(props.opacity, 1))),
@@ -292,6 +294,11 @@ export function makeElement(type, props = {}) {
     el.shadow = props.shadow === undefined ? true : !!props.shadow;
     el.glare = !!props.glare;
     el.depth = Math.max(0, Math.min(120, num(props.depth, 0)));
+    // Optional: four corners (relative to the centre) the picture is mapped onto, for rendered 3D scenes.
+    if (Array.isArray(props.quad) && props.quad.length === 4 && props.quad.every((q) => Array.isArray(q) && q.length === 2 && q.every(Number.isFinite))) {
+      el.quad = props.quad.map(([qx, qy]) => [Math.round(qx * 100) / 100, Math.round(qy * 100) / 100]);
+      el.quadRadius = Math.max(0, Math.min(0.5, num(props.quadRadius, 0.1)));
+    }
     el.w = num(props.w, 900);
     el.h = num(props.h, 1950);
     el.y = num(props.y, 1850);
@@ -703,7 +710,7 @@ export function inkOn(hex) {
 
 const D = { w: 980, h: 2123 }; // a phone at its usual size
 const dev = (w) => ({ w, h: Math.round(w * 2.166) });
-export const TEMPLATE_CATEGORIES = { all: 'All', classic: 'Classic', hero: 'Hero', tilted: 'Tilted', multi: 'Several devices', stage: 'Shapes behind', proof: 'Social proof', text: 'Text first', floating: 'Floating pieces', minimal: 'Minimal', scene: '3D scenes' };
+export const TEMPLATE_CATEGORIES = { all: 'All', classic: 'Classic', hero: 'Hero', tilted: 'Tilted', multi: 'Several devices', stage: 'Shapes behind', proof: 'Social proof', text: 'Text first', floating: 'Floating pieces', minimal: 'Minimal', scene: '3D scenes', studio: 'Studio 3D' };
 
 export const LAYOUTS = {
   'top-bleed': { label: 'Device from the top', cat: 'hero', build: ({ T, S, shot, cx }) => [shot({ x: cx, y: 800, ...dev(1040) }), T({ x: cx, y: 2230 }), S({ x: cx, y: 2500, w: 1040 })] },
@@ -776,4 +783,20 @@ export const TEMPLATE_INFO = Object.fromEntries(Object.keys(TEMPLATES).map((id) 
       TEMPLATE_INFO[id] = { cat: LAYOUTS[layout].cat, layout, look };
     }
   });
+}
+
+// Studio 3D: scenes rendered in Blender. The picture is one locked element; the screenshot is mapped onto the phone's screen.
+for (const sc of SCENES3D) {
+  const id = `studio3d-${sc.id}`;
+  const xs = sc.quad.map((q) => q[0]), ys = sc.quad.map((q) => q[1]);
+  const mx = (Math.min(...xs) + Math.max(...xs)) / 2, my = (Math.min(...ys) + Math.max(...ys)) / 2;
+  LOOKS[id] = { label: 'Studio 3D', bg: { type: 'gradient', angle: 180, stops: [{ pos: 0, color: sc.wall }, { pos: 1, color: sc.floor }] }, title: sc.ink, sub: sc.ink === '#ffffff' ? '#e6e9f2' : '#3a3f4a', accent: sc.ink, frame: '#111318' };
+  LAYOUTS[id] = { label: sc.label, cat: 'studio', build: ({ T, S, shot, cx }) => [
+    makeElement('image', { src: `builtin:scenes/${sc.id}.jpg`, x: BASE.w / 2, y: BASE.h / 2, w: SCENE_SIZE.w, h: SCENE_SIZE.h, radius: 0, name: 'Scene', locked: true }),
+    T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }),
+    shot({ x: mx, y: my, w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys), quad: sc.quad.map(([qx, qy]) => [qx - mx, qy - my]), quadRadius: sc.radius, shadow: false, locked: true, name: 'Screen' }),
+  ] };
+  DESIGNS[id] = { layout: id, look: id };
+  TEMPLATES[id] = `${sc.label} · Studio 3D`;
+  TEMPLATE_INFO[id] = { cat: 'studio', layout: id, look: id };
 }

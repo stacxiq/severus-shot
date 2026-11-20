@@ -72,6 +72,11 @@ build comes from CI and has had the least testing. Please open an issue if somet
 
 Agents get the same features through MCP: `list_devices`, `capture_device`, `setup_local_ai`, `translate_captions`, `remove_background`, `set_listing`, `install_ffmpeg`, and `layout: "fastlane"` on `export`.
 
+## New in 1.0
+
+- **Studio 3D templates.** 16 real 3D scenes rendered in Blender (cushions, podiums, arches, spheres, steps, rings, capsules and cubes in a lit studio). Drop a screenshot and the app maps it onto the phone's screen in true perspective. 282 templates in all.
+- The scenes are reproducible: `tools/blender/render_scenes.py` builds and renders them in Blender, and `tools/blender/import_scenes.py` turns the output into the bundled pictures and corner data.
+
 ## New in 0.9
 
 - **3D-style scenes.** 48 new designs (266 templates in all): a studio floor and light with the device leaning, floating or on a podium, isometric devices, a cascade of screens and a wall of screens. Any screenshot can now be turned in space and given thickness from the inspector (*Turn in space*, *Lean*, *Thickness*).
@@ -231,6 +236,10 @@ irm https://raw.githubusercontent.com/stacxiq/severus-shot/main/scripts/install.
 - **ذكاء اصطناعي محلي ومجاني:** `Ctrl+J` يترجم كل العناوين ويقترح عناوين جديدة بنموذج صغير يعمل على حاسوبك. اضغط **إعداد** مرة واحدة فينزّل التطبيق المحرك والنموذج (Gemma 3 1B، نحو 830 ميغابايت) ويشغّلهما بنفسه دون تثبيت أي شيء آخر. النماذج الصغيرة تخطئ، فراجع النتيجة.
 - **فيديو بدون Homebrew:** إن لم يكن ffmpeg مثبتاً، تعرض نافذة الفيديو تنزيله مرة واحدة.
 - **التحقق من التحديثات:** يخبرك التطبيق عند صدور إصدار أحدث على GitHub.
+
+### جديد في 1.0
+
+- **قوالب استوديو ثلاثية الأبعاد:** 16 مشهداً حقيقياً مُخرجاً في Blender. أفلت لقطتك فيضعها التطبيق على شاشة الهاتف بمنظور صحيح. المجموع 282 قالباً.
 
 ### جديد في 0.8
 
