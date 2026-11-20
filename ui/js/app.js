@@ -154,6 +154,9 @@ function drawInspector() {
       h += field('Device', selIn('el', 'frame', el.frame, Object.entries(M.FRAME_LABELS)));
       h += field('Frame colour', colorIn('el', 'frameColor', el.frameColor));
       h += `<div class="grid2">${checkIn('el', 'shadow', el.shadow, 'Shadow')}${checkIn('el', 'glare', el.glare, 'Reflection')}</div>`;
+      h += field('Turn in space', numIn('el', 'skewX', el.skewX, 1, 'min="-50" max="50"'));
+      h += field('Lean', numIn('el', 'skewY', el.skewY, 1, 'min="-50" max="50"'));
+      h += field('Thickness', numIn('el', 'depth', el.depth, 2, 'min="0" max="120"'));
     }
     if (el.type === 'image') {
       h += `<div class="btnrow"><button data-act="el-image">Replace image…</button><button data-act="el-cutout">Remove background</button></div><div class="path">${esc(fileName(el.src))}</div>`;

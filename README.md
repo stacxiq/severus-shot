@@ -72,6 +72,10 @@ build comes from CI and has had the least testing. Please open an issue if somet
 
 Agents get the same features through MCP: `list_devices`, `capture_device`, `setup_local_ai`, `translate_captions`, `remove_background`, `set_listing`, `install_ffmpeg`, and `layout: "fastlane"` on `export`.
 
+## New in 0.9
+
+- **3D-style scenes.** 48 new designs (266 templates in all): a studio floor and light with the device leaning, floating or on a podium, isometric devices, a cascade of screens and a wall of screens. Any screenshot can now be turned in space and given thickness from the inspector (*Turn in space*, *Lean*, *Thickness*).
+
 ## New in 0.8
 
 - **Right-click menu, zoom and drag from the library.** Right-click an element for duplicate, order, centre and delete; pinch or `Ctrl` + scroll (or `Ctrl +` / `Ctrl −` / `Ctrl 0`) to zoom; drag components and icons from the side panel onto the slide.

@@ -264,6 +264,8 @@ export function makeElement(type, props = {}) {
     w: num(props.w, 600),
     h: num(props.h, 600),
     rotation: num(props.rotation, 0),
+    skewX: Math.max(-50, Math.min(50, num(props.skewX, 0))),
+    skewY: Math.max(-50, Math.min(50, num(props.skewY, 0))),
     opacity: Math.min(1, Math.max(0, num(props.opacity, 1))),
   };
   if (type === 'text') {
@@ -289,6 +291,7 @@ export function makeElement(type, props = {}) {
     el.frameColor = normalizeColor(props.frameColor, '#111318');
     el.shadow = props.shadow === undefined ? true : !!props.shadow;
     el.glare = !!props.glare;
+    el.depth = Math.max(0, Math.min(120, num(props.depth, 0)));
     el.w = num(props.w, 900);
     el.h = num(props.h, 1950);
     el.y = num(props.y, 1850);
@@ -328,9 +331,9 @@ export function makeElement(type, props = {}) {
 }
 
 const UPDATABLE = {
-  common: ['name', 'x', 'y', 'w', 'h', 'rotation', 'opacity'],
+  common: ['name', 'x', 'y', 'w', 'h', 'rotation', 'skewX', 'skewY', 'opacity'],
   text: ['fontFamily', 'fontSize', 'fontWeight', 'italic', 'color', 'align', 'dir', 'lineHeight', 'letterSpacing', 'shadow'],
-  screenshot: ['src', 'srcTablet', 'frame', 'frameColor', 'shadow', 'glare'],
+  screenshot: ['src', 'srcTablet', 'frame', 'frameColor', 'shadow', 'glare', 'depth'],
   image: ['src', 'radius'],
   shape: ['shape', 'fill', 'fill2', 'radius', 'stroke', 'seed'],
   sticker: ['kind', 'text', 'fill', 'color', 'fontFamily'],
@@ -700,7 +703,7 @@ export function inkOn(hex) {
 
 const D = { w: 980, h: 2123 }; // a phone at its usual size
 const dev = (w) => ({ w, h: Math.round(w * 2.166) });
-export const TEMPLATE_CATEGORIES = { all: 'All', classic: 'Classic', hero: 'Hero', tilted: 'Tilted', multi: 'Several devices', stage: 'Shapes behind', proof: 'Social proof', text: 'Text first', floating: 'Floating pieces', minimal: 'Minimal' };
+export const TEMPLATE_CATEGORIES = { all: 'All', classic: 'Classic', hero: 'Hero', tilted: 'Tilted', multi: 'Several devices', stage: 'Shapes behind', proof: 'Social proof', text: 'Text first', floating: 'Floating pieces', minimal: 'Minimal', scene: '3D scenes' };
 
 export const LAYOUTS = {
   'top-bleed': { label: 'Device from the top', cat: 'hero', build: ({ T, S, shot, cx }) => [shot({ x: cx, y: 800, ...dev(1040) }), T({ x: cx, y: 2230 }), S({ x: cx, y: 2500, w: 1040 })] },
@@ -737,6 +740,26 @@ export const LAYOUTS = {
   outline: { label: 'Outline device, quiet page', cat: 'minimal', build: ({ t, T, S, SH, shot, cx }) => [SH('dots', { fill: t.sub, stroke: 20, x: 1090, y: 330, w: 280, h: 280, opacity: 0.5, name: 'Dots' }), T({ x: 560, y: 380, w: 960, align: 'start' }), S({ x: 540, y: 700, w: 920, align: 'start' }), shot({ x: cx, y: 2060, ...dev(900), frame: 'outline', frameColor: t.title })] },
   'plain-card': { label: 'Plain screenshot card', cat: 'minimal', build: ({ T, S, shot, cx }) => [T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }), shot({ x: cx, y: 1980, ...dev(1000), frame: 'none' })] },
 };
+
+// 3D-style scenes: a studio floor and light, and devices leaned or laid in space.
+const floor = (h) => makeElement('shape', { shape: 'rect', radius: 0, fill: '#000000', x: BASE.w / 2, y: BASE.h - h / 2 + 20, w: BASE.w + 80, h: h + 40, opacity: 0.2, name: 'Floor' });
+const light = (x, y, size = 2000) => makeElement('shape', { shape: 'glow', fill: '#ffffff', x, y, w: size, h: size, opacity: 0.28, name: 'Studio light' });
+const contact = (x, y, w, opacity = 0.34) => makeElement('shape', { shape: 'glow', fill: '#000000', x, y, w, h: w * 0.2, opacity, name: 'Contact shadow' });
+Object.assign(LAYOUTS, {
+  'studio-lean': { label: 'Studio, device leaning', cat: 'scene', build: ({ T, S, shot, cx }) => [floor(820), light(cx + 200, 1100), contact(cx + 80, 2500, 1100), T({ x: cx, y: 320 }), S({ x: cx, y: 590, w: 1040 }), shot({ x: cx + 30, y: 1700, ...dev(800), rotation: 13, skewY: -9, depth: 30 })] },
+  'studio-left': { label: 'Studio, leaning the other way', cat: 'scene', build: ({ T, S, shot, cx }) => [floor(820), light(cx - 200, 1100), contact(cx - 60, 2500, 1100), T({ x: cx, y: 320 }), S({ x: cx, y: 590, w: 1040 }), shot({ x: cx - 30, y: 1700, ...dev(800), rotation: -13, skewY: 9, depth: 30 })] },
+  'studio-float': { label: 'Studio, floating device', cat: 'scene', build: ({ T, S, shot, cx }) => [floor(700), light(cx, 1300, 2200), contact(cx, 2620, 760, 0.3), T({ x: cx, y: 320 }), S({ x: cx, y: 590, w: 1040 }), shot({ x: cx, y: 1640, ...dev(760), depth: 18, glare: true })] },
+  podium: { label: 'On a podium', cat: 'scene', build: ({ t, T, S, SH, shot, cx }) => [floor(760), light(cx, 1200, 2200), SH('rect', { x: cx, y: 2560, w: 900, h: 300, opacity: 0.55, name: 'Podium body' }), SH('ellipse', { x: cx, y: 2710, w: 900, h: 190, opacity: 0.55, name: 'Podium base' }), SH('ellipse', { fill: t.title, x: cx, y: 2410, w: 900, h: 190, opacity: 0.22, name: 'Podium top' }), SH('ellipse', { x: cx, y: 2410, w: 900, h: 190, opacity: 0.75, name: 'Podium surface' }), T({ x: cx, y: 320 }), S({ x: cx, y: 590, w: 1040 }), shot({ x: cx, y: 1560, ...dev(720), depth: 16 })] },
+  'iso-single': { label: 'Isometric device', cat: 'scene', build: ({ T, S, shot, cx }) => [light(cx, 1700, 2200), contact(cx + 90, 2440, 1200, 0.3), T({ x: cx, y: 320 }), S({ x: cx, y: 590, w: 1040 }), shot({ x: cx + 10, y: 1820, ...dev(620), rotation: -28, skewX: 24, depth: 30 })] },
+  'iso-duo': { label: 'Two isometric devices', cat: 'scene', build: ({ T, shot, cx, carry }) => [light(cx, 1700, 2200), T({ x: cx, y: 330 }), shot({ x: cx + 250, y: 1400, ...dev(480), rotation: -28, skewX: 24, depth: 24, src: carry.src2 || carry.src || '', name: 'Back device' }), shot({ x: cx - 150, y: 2060, ...dev(540), rotation: -28, skewX: 24, depth: 26, name: 'Front device' })] },
+  'iso-cascade': { label: 'Cascade of screens', cat: 'scene', build: ({ T, S, shot, cx, carry }) => [light(cx, 1800, 2400), T({ x: cx, y: 320 }), S({ x: cx, y: 590, w: 1040 }), shot({ x: cx + 330, y: 1330, ...dev(430), frame: 'none', rotation: -26, skewX: 22, depth: 12, src: carry.src2 || carry.src || '', name: 'Screen 3' }), shot({ x: cx + 20, y: 1730, ...dev(430), frame: 'none', rotation: -26, skewX: 22, depth: 12, src: carry.src2 || carry.src || '', name: 'Screen 2' }), shot({ x: cx - 290, y: 2130, ...dev(430), frame: 'none', rotation: -26, skewX: 22, depth: 12, name: 'Screen 1' })] },
+  'screen-wall': { label: 'Wall of screens', cat: 'scene', build: ({ t, T, SH, shot, cx, carry, paper }) => [
+    shot({ x: cx - 420, y: 700, ...dev(560), frame: 'none', rotation: -10, shadow: false, name: 'Screen 1' }), shot({ x: cx + 190, y: 560, ...dev(560), frame: 'none', rotation: -10, shadow: false, src: carry.src2 || carry.src || '', name: 'Screen 2' }),
+    shot({ x: cx - 200, y: 1980, ...dev(560), frame: 'none', rotation: -10, shadow: false, src: carry.src2 || carry.src || '', name: 'Screen 3' }), shot({ x: cx + 410, y: 1840, ...dev(560), frame: 'none', rotation: -10, shadow: false, name: 'Screen 4' }),
+    SH('rect', { x: cx, y: BASE.h / 2, w: BASE.w, h: BASE.h, opacity: 0.38, name: 'Tint' }),
+    SH('rect', { fill: paper, radius: 70, x: cx, y: 1420, w: 1080, h: 420, opacity: 0.94, name: 'Caption card' }), T({ x: cx, y: 1420, fontSize: 112, w: 960 }),
+  ] },
+});
 
 const CLASSIC_CAT = { rating: 'proof', award: 'proof', review: 'proof', 'hero-text': 'text', checklist: 'text', pills: 'floating', notify: 'floating', playful: 'floating', tilted: 'tilted', duo: 'multi', trio: 'multi', spotlight: 'stage', card: 'stage', zoom: 'hero', frameless: 'minimal' };
 // id -> { layout, look }. Every composition is offered in six looks, spread so neighbours differ.

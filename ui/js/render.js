@@ -191,6 +191,21 @@ function drawScreenshot(ctx, el, env, opts) {
   const bezel = w * G.bezel, R = w * G.radius, fc = el.frameColor;
   const realistic = frame === 'phone' || frame === 'phone-notch' || frame === 'android' || frame === 'tablet';
 
+  // Thickness: the body drawn again behind itself, stepped away, so the device looks solid.
+  const depth = (el.depth || 0) * env.s;
+  if (depth > 0.5 && frame !== 'outline') {
+    ctx.save();
+    const steps = Math.max(2, Math.ceil(depth / 1.5)), side = frame === 'none' ? '#20232b' : fc;
+    for (let i = steps; i >= 1; i -= 1) {
+      const d = (depth * i) / steps;
+      rr(ctx, x + d * 0.8, y + d * 0.55, w, h, R);
+      if (i === steps && el.shadow) { ctx.shadowColor = 'rgba(0,0,0,0.42)'; ctx.shadowBlur = w * 0.14; ctx.shadowOffsetX = w * 0.03; ctx.shadowOffsetY = w * 0.06; } else ctx.shadowColor = 'transparent';
+      ctx.fillStyle = shade(ctx, side, -0.18 - 0.22 * (i / steps));
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // Body, with the drop shadow.
   ctx.save();
   if (el.shadow) {
@@ -904,6 +919,8 @@ export function renderSlide(ctx, project, slide, options) {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(((el.rotation + (m && m.rot ? m.rot : 0)) * Math.PI) / 180);
+    // A shear makes a flat element read as if it were turned in space (isometric mock-ups).
+    if (el.skewX || el.skewY) ctx.transform(1, Math.tan(((el.skewY || 0) * Math.PI) / 180), Math.tan(((el.skewX || 0) * Math.PI) / 180), 1, 0, 0);
     if (m && (m.scale !== 1 || (m.sx !== undefined && m.sx !== 1))) ctx.scale(m.scale * (m.sx === undefined ? 1 : m.sx), m.scale);
     ctx.globalAlpha = el.opacity * (m ? m.alpha : 1);
     let box;

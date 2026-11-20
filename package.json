@@ -1,6 +1,6 @@
 {
   "name": "severus-shot",
-  "version": "0.8.5",
+  "version": "0.9.0",
   "private": true,
   "description": "Desktop App Store / Google Play screenshot maker with agent (MCP) control",
   "scripts": {
