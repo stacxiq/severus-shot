@@ -348,3 +348,72 @@ export async function runChatActions(studio, M, actions, ai) {
   }
   return done;
 }
+
+// ----- understanding a request without the model -----
+// A small model writes well but picks actions badly, so the app reads the request itself
+// (English and Arabic) and keeps the model for writing captions.
+const AR_COLORS = { 'أزرق': 'blue', 'ازرق': 'blue', 'زرقاء': 'blue', 'أحمر': 'red', 'احمر': 'red', 'حمراء': 'red', 'أخضر': 'green', 'اخضر': 'green', 'خضراء': 'green', 'أصفر': 'yellow', 'اصفر': 'yellow', 'صفراء': 'yellow', 'برتقالي': 'orange', 'وردي': 'pink', 'زهري': 'pink', 'بنفسجي': 'purple', 'أسود': 'black', 'اسود': 'black', 'سوداء': 'black', 'أبيض': 'white', 'ابيض': 'white', 'بيضاء': 'white', 'رمادي': 'grey', 'كحلي': 'navy', 'ذهبي': 'gold', 'بني': 'brown', 'بيج': 'beige' };
+const LANG_WORDS = { ar: /arabic|العربي|عربي/i, en: /english|الإنجليزي|الانجليزي|انجليزي|إنجليزي/i, fr: /french|الفرنسي|فرنسي/i, tr: /turkish|التركي|تركي/i, ku: /kurdish|الكردي|كردي/i, es: /spanish|الإسباني|اسباني/i, de: /german|الألماني|الماني/i, fa: /persian|farsi|الفارسي|فارسي/i, ur: /urdu|الأردو/i };
+const LAYOUT_WORDS = { tilted: /tilt|angle|lean|slant|rotat|مائل|ميل/i, multi: /two (devices|phones)|three (devices|phones)|several|multiple|جهازين|جهازان|ثلاثة أجهزة|عدة أجهزة/i, minimal: /minimal|simple|clean\b|quiet|بسيط|هادئ/i, proof: /review|testimonial|social proof|award layout|مراجعة/i, text: /text[- ]only|no device|big text|statement|بدون جهاز|نص فقط/i, floating: /floating|notification|pills around|عائم|إشعارات/i, stage: /shape behind|circle behind|card behind|arch|دائرة خلف|شكل خلف/i, hero: /hero|big device|large device|full screen|جهاز كبير/i };
+
+// The last colour mentioned wins, so "from yellow to blue" means blue.
+export function colorIn(message) {
+  const m = String(message).toLowerCase();
+  const hex = m.match(/#[0-9a-f]{6}\b|#[0-9a-f]{3}\b/g);
+  if (hex) return colorOf(hex[hex.length - 1]);
+  let best = null, at = -1;
+  for (const [word, name] of [...Object.keys(COLOR_NAMES).map((k) => [k, k]), ...Object.entries(AR_COLORS)]) {
+    const i = m.lastIndexOf(word);
+    if (i > at || (i === at && best && word.length > best.word.length)) { if (i >= 0) { best = { word, name }; at = i; } }
+  }
+  return best ? COLOR_NAMES[best.name] : null;
+}
+
+export function detectIntents(message, looks = []) {
+  const m = String(message || '').toLowerCase();
+  const has = (re) => re.test(m);
+  const out = [];
+  const quoted = (String(message).match(/["“«]([^"”»]{2,160})["”»]/) || [])[1];
+  const wantsBg = has(/background|backdrop|\bbg\b|خلفي/);
+  const color = colorIn(m);
+  const look = looks.find((l) => new RegExp(`\\b${l}\\b`).test(m));
+  if (has(/translat|ترجم/)) {
+    const lang = Object.keys(LANG_WORDS).find((k) => LANG_WORDS[k].test(m)) || (m.match(/\bto ([a-z]{2})\b/) || [])[1];
+    if (lang) out.push({ do: 'translate', lang });
+  }
+  if (has(/layout|template|arrange|composition|تخطيط|قالب|ترتيب/) || Object.values(LAYOUT_WORDS).some((re) => re.test(m))) {
+    const style = Object.keys(LAYOUT_WORDS).find((k) => LAYOUT_WORDS[k].test(m)) || CHAT_LAYOUTS[Math.floor(Math.random() * CHAT_LAYOUTS.length)];
+    out.push({ do: 'change_layout', style });
+  }
+  if (look) out.push({ do: 'change_colors', style: look });
+  else if (color && (wantsBg || has(/make it|turn it|colou?r|اجعل|لون|غيّر|غير/))) out.push({ do: 'set_background', color });
+  else if (has(/\bdark|night|داكن|غامق|ليلي/)) out.push({ do: 'change_colors', style: 'noir' });
+  else if (has(/\blight\b|bright|فاتح|مشرق/)) out.push({ do: 'change_colors', style: 'cream' });
+  else if (has(/colou?rs|palette|theme|ألوان|الوان/) && looks.length) out.push({ do: 'change_colors', style: looks[Math.floor(Math.random() * looks.length)] });
+  if (has(/polish|tidy|clean ?up|improve (the )?(design|slide|look)|look (better|nicer|premium|modern|professional)|make it (better|nicer|premium|modern|professional|pop)|لمّع|لمع|حسّن التصميم|حسن التصميم|رتّب|اجعله أجمل|احترافي/) || (wantsBg && !color && has(/polish|improve|better|حسّن|حسن/))) out.push({ do: 'polish' });
+  if (has(/rating|\bstars?\b|تقييم|نجوم|نجمة/)) out.push({ do: 'add_badge', kind: 'rating' });
+  else if (has(/award|laurel|جائزة/)) out.push({ do: 'add_badge', kind: 'award', text: quoted });
+  else if (has(/check ?(list|mark)|قائمة مزايا/)) out.push({ do: 'add_badge', kind: 'check', text: quoted });
+  else if (has(/badge|\bpill\b|label|شارة|ملصق/)) out.push({ do: 'add_badge', kind: 'pill', text: quoted });
+  if (has(/(add|new|another|one more|duplicate)\b.{0,12}slide|شريحة جديدة|أضف شريحة|اضف شريحة|شريحة أخرى/)) out.push({ do: 'add_slide' });
+  const rewrite = has(/rewrite|write|shorter|stronger|better|punch|catch|improve|change|new|fix|اكتب|أقصر|اقصر|أقوى|اقوى|أفضل|افضل|غيّر|غير|جديد|حسّن|حسن/);
+  if (has(/sub-?title|subheading|second line|tagline|العنوان الفرعي|السطر الثاني/) && (rewrite || quoted)) out.push({ do: 'set_subtitle', text: quoted, write: !quoted });
+  else if (has(/headline|\btitle\b|heading|caption|\bcopy\b|العنوان|عنوان|النص الرئيسي/) && (rewrite || quoted)) out.push({ do: 'set_title', text: quoted, write: !quoted });
+  else if (has(/add (a |some |more )?(text|line)|أضف نص|اضف نص|أضف سطر/)) out.push({ do: 'add_text', text: quoted, write: !quoted });
+  return out;
+}
+
+// One narrow writing job at a time: this is what a small model does well.
+export async function writeCaption(ai, kind, request, ctx) {
+  const spec = { set_title: 'one headline of at most 5 words, benefit-led, with no full stop', set_subtitle: 'one supporting line of at most 12 words', add_text: 'one short extra line of at most 8 words' }[kind];
+  const current = kind === 'set_subtitle' ? ctx.subtitle : ctx.title;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const raw = String(await ai.chat([
+      { role: 'system', content: `You write text for App Store screenshots in ${langName(ctx.lang)}. Write ${spec}. Reply with that text only: no quotes, no explanation, no emoji.` },
+      { role: 'user', content: `App: ${ctx.project}\nHeadline now: ${ctx.title}\nLine under it now: ${ctx.subtitle}\nRequest: ${request}${attempt ? '\nIt must be different from the current text.' : ''}` },
+    ], { temperature: attempt ? 0.9 : 0.7, maxTokens: 60 })).replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    const text = cleanReply(cleanReply(raw.split('\n').find((l) => l.trim()) || '').replace(/[.。]$/, '')).slice(0, 90);
+    if (text && text !== String(current).trim()) return text;
+  }
+  return '';
+}

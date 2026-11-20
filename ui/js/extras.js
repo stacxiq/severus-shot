@@ -3,7 +3,7 @@ import * as M from './model.js';
 import { bridge, isTauri } from './bridge.js';
 import { t, localize } from './i18n.js';
 import { icon } from './icons.js';
-import { AI_DEFAULTS, LANG_NAMES, LocalAI, langName, normalizeSettings, translateProject, draftListing, translateListing, chatSchema, chatSystem, alternating, chatContext, parseChatReply, runChatActions } from './ai.js';
+import { AI_DEFAULTS, LANG_NAMES, LocalAI, langName, normalizeSettings, translateProject, draftListing, translateListing, chatSchema, chatSystem, alternating, detectIntents, writeCaption, chatContext, parseChatReply, runChatActions } from './ai.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -408,15 +408,28 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
     bubble('me', msg);
     const wait = bubble('ai', t('Thinking…'));
     try {
+      const ctx = chatContext(studio, M);
+      // The app reads the request itself first; the model is only asked to write words.
+      const intents = detectIntents(msg, ctx.looks);
+      if (intents.length) {
+        const needsModel = intents.some((a) => a.write || a.do === 'translate');
+        const client = needsModel ? await aiClient() : null;
+        for (const a of intents) if (a.write) a.text = await writeCaption(client, a.do, msg, ctx);
+        const done = await runChatActions(studio, M, intents.filter((a) => !a.write || a.text), client);
+        wait.remove();
+        bubble('ai', done.length ? t('Done.') : t('I understood the request but had nothing to change. Try saying it another way.'), done.map((x) => `✓ ${x}`));
+        if (done.length) studio.emit('project');
+        return;
+      }
       const client = await aiClient();
       history.push({ role: 'user', content: msg });
-      const raw = await client.chat([{ role: 'system', content: chatSystem(chatContext(studio, M)) }, ...alternating(history)], { schema: chatSchema(chatContext(studio, M).looks), temperature: 0.5, maxTokens: 400 });
+      const raw = await client.chat([{ role: 'system', content: chatSystem(ctx) }, ...alternating(history)], { schema: chatSchema(ctx.looks), temperature: 0.5, maxTokens: 400 });
       const { reply, actions } = parseChatReply(raw);
       history.push({ role: 'assistant', content: JSON.stringify({ reply, actions }) });
       const done = await runChatActions(studio, M, actions, client);
       wait.remove();
-      bubble('ai', reply, done.length ? done.map((x) => `✓ ${x}`) : (actions.length ? [t('Nothing on the slide needed changing.')] : []));
-      if (!done.length && !actions.length && /\b(chang|polish|updat|add|switch|made|set)\w*/i.test(reply)) bubble('ai', t('Note: no change was made to the slide. Try asking in other words, for example “set the background to blue”.'));
+      bubble('ai', reply, done.map((x) => `✓ ${x}`));
+      if (!done.length && /\b(chang|polish|updat|add|switch|made|set)\w*/i.test(reply)) bubble('ai', t('Note: no change was made to the slide. Try asking in other words, for example “set the background to blue”.'));
       if (done.length) studio.emit('project');
     } catch (err) {
       wait.remove();
@@ -465,7 +478,11 @@ export function initExtras({ studio, toast, guard, addScreenshots }) {
       if (!(st.engine && st.model) && !out.ownServer) return { ...out, note: 'not set up yet' };
       const client = await aiClient();
       out.translation = await client.translate('Order food in seconds', 'en', 'ar');
-      const parsed = parseChatReply(await client.chat([{ role: 'system', content: chatSystem(chatContext(studio, M)) }, { role: 'user', content: 'Make the headline shorter and add a rating badge.' }], { schema: chatSchema(chatContext(studio, M).looks), temperature: 0.3, maxTokens: 300 }));
+      const ctx = chatContext(studio, M);
+      out.intents = detectIntents('make the headline shorter, add a rating badge and change the background to blue', ctx.looks).map((a) => a.do);
+      out.headline = await writeCaption(client, 'set_title', 'make the headline shorter and stronger', ctx);
+      out.subtitle = await writeCaption(client, 'set_subtitle', 'write a better subtitle', ctx);
+      const parsed = parseChatReply(await client.chat([{ role: 'system', content: chatSystem(ctx) }, { role: 'user', content: 'Is my headline good?' }], { schema: chatSchema(ctx.looks), temperature: 0.3, maxTokens: 300 }));
       out.chatReply = parsed.reply; out.chatActions = parsed.actions;
       return out;
     });

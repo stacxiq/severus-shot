@@ -344,3 +344,25 @@ test('chat keeps turns alternating and can set a plain background and polish', a
   assert.ok(studio.slide.elements.some((e) => e.type === 'shape' && e.shape === 'glow'));
   assert.ok(studio.slide.elements.filter((e) => e.type === 'screenshot').every((e) => e.shadow && e.glare));
 });
+
+import { detectIntents, colorIn, writeCaption } from '../ui/js/ai.js';
+test('requests are understood without the model, in English and Arabic', async () => {
+  const looks = Object.keys(M.LOOKS);
+  const dos = (msg) => detectIntents(msg, looks).map((a) => [a.do, a.style || a.kind || a.color || a.lang || (a.write ? 'write' : a.text)].join(':'));
+  assert.deepEqual(dos('change background from yellow to blue'), ['set_background:#2563eb']);
+  assert.deepEqual(dos('polish background'), ['polish:']);
+  assert.deepEqual(dos('make the headline shorter and add a rating badge'), ['add_badge:rating', 'set_title:write']);
+  assert.deepEqual(dos('try a tilted layout with a dark look'), ['change_layout:tilted', 'change_colors:noir']);
+  assert.deepEqual(dos('use the neon colours'), ['change_colors:neon']);
+  assert.deepEqual(dos('Translate everything to Arabic'), ['translate:ar']);
+  assert.deepEqual(dos('add another slide'), ['add_slide:']);
+  assert.deepEqual(dos('set the title to "Dinner in minutes"'), ['set_title:Dinner in minutes']);
+  assert.deepEqual(dos('اجعل الخلفية زرقاء'), ['set_background:#2563eb']);
+  assert.deepEqual(dos('اكتب عنوان أقوى'), ['set_title:write']);
+  assert.deepEqual(dos('ترجم إلى الإنجليزية'), ['translate:en']);
+  assert.deepEqual(dos('أضف شارة تقييم'), ['add_badge:rating']);
+  assert.deepEqual(dos('is my headline good?'), []);
+  assert.equal(colorIn('from red to #0f0'), '#00ff00');
+  const ai = { n: 0, async chat() { this.n += 1; return this.n === 1 ? 'Say what your app does' : '"Dinner in minutes."\nextra'; } };
+  assert.equal(await writeCaption(ai, 'set_title', 'shorter', { lang: 'en', project: 'x', title: 'Say what your app does', subtitle: '' }), 'Dinner in minutes');
+});

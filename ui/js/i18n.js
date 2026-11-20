@@ -84,6 +84,8 @@ const AR = {
   'To upload, run in a terminal:': 'للرفع، نفّذ في الطرفية:',
   'AI': 'الذكاء',
   'Local AI': 'ذكاء اصطناعي محلي',
+  'Done.': 'تم.',
+  'I understood the request but had nothing to change. Try saying it another way.': 'فهمت الطلب لكن لم أجد ما أغيّره. جرّب صياغة أخرى.',
   'Type at least two letters to search online.': 'اكتب حرفين على الأقل للبحث عبر الإنترنت.',
   '{0} result(s). Click one, or drag it onto the slide.': '{0} نتيجة. انقر واحدة أو اسحبها إلى الشريحة.',
   'The online search did not answer. Check the internet connection and try again.': 'لم يُجب البحث عبر الإنترنت. تحقق من الاتصال وحاول مجدداً.',
