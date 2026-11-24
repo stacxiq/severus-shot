@@ -5,6 +5,10 @@
 Free, open-source desktop app for making App Store and Google Play screenshots and short motion videos.
 Runs on macOS, Windows and Linux, with the interface in English and Arabic. Any AI agent that supports MCP can drive it.
 
+[![Watch the 20-second launch video](docs/launch.jpg)](https://github.com/stacxiq/severus-shot/blob/main/docs/launch.mp4)
+
+*Click the picture to watch the 20-second launch video.*
+
 ![The Severus Shot editor](docs/editor.jpg)
 
 | Template gallery | Icon library | Google Fonts |
