@@ -241,8 +241,19 @@ function drawQuadImage(ctx, img, pts, radius) {
 function drawQuadScreenshot(ctx, el, env, opts) {
   const pts = el.quad.map(([x, y]) => [x * env.s, y * env.s]);
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
-  const img = opts.getImage(el.src);
-  if (img) drawQuadImage(ctx, img, pts, el.quadRadius || 0);
+  const img = opts.getImage(el.src), mask = el.maskSrc ? opts.getImage(el.maskSrc) : null;
+  if (img && mask) {
+    // Draw on a spare canvas the size of the slide, keep only what the mask lets through, then lay it down.
+    const W = Math.max(1, Math.round(BASE.w * env.s)), H = Math.max(1, Math.round(BASE.h * env.s));
+    const off = drawQuadScreenshot.off || (drawQuadScreenshot.off = document.createElement('canvas'));
+    off.width = W; off.height = H;
+    const o = off.getContext('2d');
+    o.save(); o.translate(el.x * env.s, el.y * env.s); drawQuadImage(o, img, pts, 0); o.restore();
+    o.globalCompositeOperation = 'destination-in'; o.imageSmoothingQuality = 'high'; o.drawImage(mask, 0, 0, W, H);
+    o.globalCompositeOperation = 'source-over';
+    ctx.drawImage(off, -el.x * env.s, -el.y * env.s);
+  } else if (img) drawQuadImage(ctx, img, pts, el.quadRadius || 0);
+  else if (el.maskSrc && opts.final) { /* a photographed scene keeps its own screen until a screenshot is dropped in */ }
   else if (!opts.final) {
     ctx.save();
     ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath();
@@ -414,6 +425,7 @@ function drawImageEl(ctx, el, env, opts) {
   ctx.save();
   rr(ctx, -w / 2, -h / 2, w, h, el.radius * env.s);
   ctx.clip();
+  if (el.blend) { if (!img) { ctx.restore(); return { w, h }; } ctx.globalCompositeOperation = el.blend; }
   if (img) {
     ctx.imageSmoothingQuality = 'high';
     drawCover(ctx, img, -w / 2, -h / 2, w, h);
@@ -1027,6 +1039,7 @@ export function imageSources(project) {
     if (s.background.type === 'image' && s.background.src) set.add(s.background.src);
     for (const e of s.elements) {
       if (e.src) set.add(e.src);
+      if (e.maskSrc) set.add(e.maskSrc);
       if (e.srcTablet) set.add(e.srcTablet);
     }
   }

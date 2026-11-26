@@ -55,6 +55,7 @@
         <div id="tplCats" class="chips" data-no-i18n></div>
         <div id="tplThemes" class="swatches" data-no-i18n></div>
         <p class="sub"><span id="tplCount" data-no-i18n></span> · Click one to use it on this slide, or press + to add it as a new slide. Your captions and screenshots are kept. Pick a colour dot to recolour them all.</p>
+        <button type="button" id="tplAddScene" data-icon="image"><span>Add my own scene</span></button>
         <div id="tplGrid" class="grid"></div>
       </section>
       <section id="tab-elements" hidden>
@@ -198,6 +199,16 @@
   </form>
 </dialog>
 
+<dialog id="sceneDlg" class="wide">
+  <form method="dialog" class="dlg">
+    <h2>Add my own scene</h2>
+    <p>Drag the four dots onto the corners of the screen in your picture: 1 is the top left of the screen as the device holds it, then clockwise. The picture stays on this computer.</p>
+    <div class="sceneStage"><canvas id="sceneCanvas"></canvas></div>
+    <label class="row"><span>Name</span> <input id="sceneName" type="text" maxlength="60" spellcheck="false" style="flex:1"></label>
+    <label class="row"><span>Corners</span> <input id="sceneRadius" type="range" min="0" max="30" value="8" style="flex:1"></label>
+    <div class="actions"><button value="cancel">Cancel</button><button type="button" class="primary" id="sceneSave">Save scene</button></div>
+  </form>
+</dialog>
 <dialog id="agentDlg">
   <form method="dialog" class="dlg">
     <h2>Connect an AI agent</h2>

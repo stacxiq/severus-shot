@@ -3416,7 +3416,7 @@ dependencies = [
 
 [[package]]
 name = "severus-shot"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "base64 0.22.1",
  "fontdb",

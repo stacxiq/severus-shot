@@ -7,6 +7,7 @@ import { t, localize, setUiLang, uiLang } from './i18n.js';
 import { applyIcons } from './icons.js';
 import { initPanels } from './panels.js';
 import { initExtras } from './extras.js';
+import { initMyScenes } from './myscenes.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -552,6 +553,7 @@ const actions = {
 const panels = initPanels({ studio, toast, guard, getInfo: () => info, addScreenshots, pickImages, confirmDiscard, api: { run: (name) => (actions[name] ? actions[name]() : null) } });
 Object.assign(actions, panels.actions);
 const extras = initExtras({ studio, toast, guard, addScreenshots });
+const myScenes = initMyScenes({ studio, toast, guard, pickImages });
 Object.assign(actions, extras.actions);
 
 /* ---------- zoom ---------- */
@@ -759,6 +761,7 @@ async function runJob(job) {
   bridge.onFileDrop(guard(handleDroppedPaths));
   studio.projectsDir = info.projectsDir || '';
   studio.dataDir = info.dataDir || '';
+  await myScenes.load();
   studio.loadIcons().catch((err) => console.warn('icons unavailable', err));
   studio.hasFfmpeg = !!info.ffmpeg;
   if (info.job) { await bridge.frontendReady(); runJob(info.job); return; }

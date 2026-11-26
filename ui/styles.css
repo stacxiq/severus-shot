@@ -278,3 +278,8 @@ body.dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; 
 .ctxMenu button { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 18px; background: none; border: 0; padding: 7px 10px; border-radius: 8px; text-align: start; }
 .ctxMenu button:hover { background: var(--s3); } .ctxMenu button.danger { color: var(--danger); }
 .ctxMenu kbd { color: var(--faint); font-size: 11px; background: none; border: 0; } .ctxMenu i { display: block; height: 1px; background: var(--line); margin: 4px 6px; }
+
+/* My scenes */
+#tplAddScene { width: 100%; margin: 0 0 10px; }
+.sceneStage { background: var(--s1); border: 1px solid var(--line); border-radius: var(--r); display: flex; justify-content: center; margin: 10px 0; overflow: hidden; }
+#sceneCanvas { display: block; max-width: 100%; touch-action: none; cursor: crosshair; }

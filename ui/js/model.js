@@ -298,6 +298,8 @@ export function makeElement(type, props = {}) {
     if (Array.isArray(props.quad) && props.quad.length === 4 && props.quad.every((q) => Array.isArray(q) && q.length === 2 && q.every(Number.isFinite))) {
       el.quad = props.quad.map(([qx, qy]) => [Math.round(qx * 100) / 100, Math.round(qy * 100) / 100]);
       el.quadRadius = Math.max(0, Math.min(0.5, num(props.quadRadius, 0.1)));
+      // Optional: a full-slide picture whose see-through parts hide the screenshot (the exact screen shape of a photographed device).
+      if (props.maskSrc) el.maskSrc = String(props.maskSrc);
     }
     el.w = num(props.w, 900);
     el.h = num(props.h, 1950);
@@ -305,6 +307,7 @@ export function makeElement(type, props = {}) {
   } else if (type === 'image') {
     el.src = String(props.src || props.path || '');
     el.radius = Math.max(0, num(props.radius, 0));
+    if (['screen', 'multiply', 'overlay', 'soft-light'].includes(props.blend)) el.blend = props.blend; // how the picture mixes with what is under it
     el.w = num(props.w, 400);
     el.h = num(props.h, 400);
   } else if (type === 'icon') {
@@ -710,7 +713,7 @@ export function inkOn(hex) {
 
 const D = { w: 980, h: 2123 }; // a phone at its usual size
 const dev = (w) => ({ w, h: Math.round(w * 2.166) });
-export const TEMPLATE_CATEGORIES = { all: 'All', classic: 'Classic', hero: 'Hero', tilted: 'Tilted', multi: 'Several devices', stage: 'Shapes behind', proof: 'Social proof', text: 'Text first', floating: 'Floating pieces', minimal: 'Minimal', scene: '3D scenes', studio: 'Studio 3D' };
+export const TEMPLATE_CATEGORIES = { all: 'All', classic: 'Classic', hero: 'Hero', tilted: 'Tilted', multi: 'Several devices', stage: 'Shapes behind', proof: 'Social proof', text: 'Text first', floating: 'Floating pieces', minimal: 'Minimal', scene: '3D scenes', studio: 'Studio 3D', mine: 'My scenes' };
 
 export const LAYOUTS = {
   'top-bleed': { label: 'Device from the top', cat: 'hero', build: ({ T, S, shot, cx }) => [shot({ x: cx, y: 800, ...dev(1040) }), T({ x: cx, y: 2230 }), S({ x: cx, y: 2500, w: 1040 })] },
@@ -799,4 +802,32 @@ for (const sc of SCENES3D) {
   DESIGNS[id] = { layout: id, look: id };
   TEMPLATES[id] = `${sc.label} · Studio 3D`;
   TEMPLATE_INFO[id] = { cat: 'studio', layout: id, look: id };
+}
+
+// My scenes: mockup pictures the user added on this computer. Each one is a full-slide picture plus the corners of
+// every screen in it; they are stored next to the user's projects and never ship with the app.
+export const USER_SCENES = {};
+export function registerUserScene(sc) {
+  if (!sc || !sc.id || !sc.image || !Array.isArray(sc.screens) || !sc.screens.length) return null;
+  const id = `mine-${String(sc.id).replace(/[^a-z0-9-]/gi, '-')}`;
+  const ink = sc.ink === '#141414' ? '#141414' : '#ffffff', fill = normalizeColor(sc.fill, '#14161b');
+  USER_SCENES[id] = sc;
+  LOOKS[id] = { label: sc.pack || 'My scenes', bg: { type: 'solid', color: fill }, title: ink, sub: ink === '#ffffff' ? '#e6e9f2' : '#3a3f4a', accent: ink, frame: '#111318' };
+  LAYOUTS[id] = { label: sc.label || 'My scene', cat: 'mine', build: ({ T, S, shot, cx, carry }) => [
+    makeElement('image', { src: sc.image, x: BASE.w / 2, y: BASE.h / 2, w: BASE.w, h: BASE.h, radius: 0, name: 'Scene', locked: true }),
+    T({ x: cx, y: 330 }), S({ x: cx, y: 600, w: 1040 }),
+    ...sc.screens.map((scr, i) => {
+      const xs = scr.quad.map((q) => q[0]), ys = scr.quad.map((q) => q[1]);
+      const mx = (Math.min(...xs) + Math.max(...xs)) / 2, my = (Math.min(...ys) + Math.max(...ys)) / 2;
+      return shot({ x: mx, y: my, w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys), quad: scr.quad.map(([qx, qy]) => [qx - mx, qy - my]), quadRadius: scr.radius ?? 0.08, maskSrc: sc.mask || '', shadow: false, locked: true, name: i ? `Screen ${i + 1}` : 'Screen', ...(i ? { src: carry.src2 || carry.src || '' } : {}) });
+    }),
+    ...(sc.light ? [makeElement('image', { src: sc.light, x: BASE.w / 2, y: BASE.h / 2, w: BASE.w, h: BASE.h, radius: 0, blend: 'screen', name: 'Light', locked: true })] : []),
+  ] };
+  DESIGNS[id] = { layout: id, look: id };
+  TEMPLATES[id] = `${sc.label || 'My scene'} · ${sc.pack || 'My scenes'}`;
+  TEMPLATE_INFO[id] = { cat: 'mine', layout: id, look: id };
+  return id;
+}
+export function removeUserScene(id) {
+  for (const o of [USER_SCENES, LOOKS, LAYOUTS, DESIGNS, TEMPLATES, TEMPLATE_INFO]) delete o[id];
 }

@@ -40,7 +40,7 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
       tplSeen.unobserve(e.target);
       const card = e.target, slide = M.makeSlide(card.dataset.tpl, tplTheme, tplCarry);
       // Scene templates carry a bundled picture; load it before drawing the thumbnail.
-      const pics = slide.elements.map((x) => x.src).filter((x) => x && String(x).startsWith('builtin:'));
+      const pics = slide.elements.flatMap((x) => (x.locked ? [x.src, x.maskSrc] : [])).filter(Boolean);
       Promise.all(pics.map((x) => studio.loadImage(x))).then(() => slideThumb(card.querySelector('canvas'), slide, 130));
     }
   }, { rootMargin: '400px' });
@@ -57,16 +57,19 @@ export function initPanels({ studio, toast, guard, getInfo, addScreenshots, pick
     const hits = all.filter((id) => inCat(id, tplCat) && (!q || tplName(id).toLowerCase().includes(q) || M.TEMPLATES[id].toLowerCase().includes(q)));
     $('#tplCats').innerHTML = Object.entries(M.TEMPLATE_CATEGORIES).map(([id, label]) => `<button type="button" class="chip ${id === tplCat ? 'on' : ''}" data-tcat="${id}">${esc(t(label))} <small>${all.filter((x) => inCat(x, id)).length}</small></button>`).join('');
     tplSeen.disconnect();
-    $('#tplGrid').innerHTML = hits.map((id) => `<div class="card" data-tpl="${id}"><button type="button" class="thumbBtn" data-use="${id}" title="${esc(t('Use on this slide'))}"><canvas></canvas></button><div class="cardRow"><span class="cardName" data-no-i18n>${esc(tplName(id))}</span><button type="button" class="mini" data-add="${id}" title="${esc(t('Add as a new slide'))}">${icon('plus')}</button></div></div>`).join('') || `<p class="sub">${esc(t('No template matches that search.'))}</p>`;
+    $('#tplGrid').innerHTML = hits.map((id) => `<div class="card" data-tpl="${id}"><button type="button" class="thumbBtn" data-use="${id}" title="${esc(t('Use on this slide'))}"><canvas></canvas></button><div class="cardRow"><span class="cardName" data-no-i18n>${esc(tplName(id))}</span><button type="button" class="mini" data-add="${id}" title="${esc(t('Add as a new slide'))}">${icon('plus')}</button>${M.USER_SCENES[id] ? `<button type="button" class="mini" data-del-scene="${id}" title="${esc(t('Remove this scene'))}">${icon('trash')}</button>` : ''}</div></div>`).join('') || `<p class="sub">${esc(t('No template matches that search.'))}</p>`;
     for (const card of $('#tplGrid').querySelectorAll('.card')) tplSeen.observe(card);
     $('#tplCount').textContent = t('{0} templates', hits.length);
   }
+  document.addEventListener('templates-changed', () => { if (!$('#tab-templates').hidden) drawTemplates(); });
   $('#tplSearch').addEventListener('input', () => { clearTimeout(drawTemplates.timer); drawTemplates.timer = setTimeout(drawTemplates, 120); });
   $('#tab-templates').addEventListener('click', guard(async (e) => {
     const sw = e.target.closest('[data-theme]');
     if (sw) { tplTheme = sw.dataset.theme || null; drawTemplates(); return; }
     const chip = e.target.closest('[data-tcat]');
     if (chip) { tplCat = chip.dataset.tcat; drawTemplates(); $('#tplGrid').scrollIntoView({ block: 'nearest' }); return; }
+    const del = e.target.closest('[data-del-scene]');
+    if (del) { document.dispatchEvent(new CustomEvent('scene-remove', { detail: del.dataset.delScene })); return; }
     const use = e.target.closest('[data-use]'), add = e.target.closest('[data-add]');
     if (use) {
       await studio.mutate(() => M.applyTemplate(studio.slide, use.dataset.use, tplTheme));

@@ -19,6 +19,10 @@ Runs on macOS, Windows and Linux, with the interface in English and Arabic. Any 
 |---|---|
 | ![Video dialog](docs/video.jpg) | ![Motion video](docs/motion.gif) |
 
+## Your own mockup scenes
+
+Have a mockup picture you like — a photographed phone, a rendered laptop? Open **Templates → Add my own scene**, choose the picture and drag the four dots onto the corners of its screen. It becomes a template under **My scenes**, and your screenshots are fitted into it in perspective. Scenes are stored on your computer (`Documents/Severus Shot/Scenes`) and never leave it, so pictures from packs you have licensed stay private.
+
 ## Install
 
 1. Open the [latest release](https://github.com/stacxiq/severus-shot/releases/latest).
